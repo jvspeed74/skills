@@ -12,7 +12,8 @@ argument-hint: "[concept]"
 # MCQ Probe
 
 A self-contained evaluation tool. The learner specifies a concept; the skill
-runs N MCQ trials against it, gives full breakdowns after every response, then
+runs N trials against it — a mix of multiple-choice (MCQ), multiple-select (MSQ),
+and ordering (ORD) — gives full breakdowns after every response, then
 produces a diagnostic Markdown report. There is no coaching, no nudging, and no
 routing to other skills. The output is an unvarnished picture of what the learner
 does and does not understand.
@@ -29,8 +30,9 @@ SCRIPT_TYPE = /mnt/skills/user/mcq-probe/scripts/select_question_type.py
 SCRIPT_AXIS = /mnt/skills/user/mcq-probe/scripts/select_mcq_axis.py
 
 # Read via the Read tool
-MCQ_PROMPT  = /mnt/skills/user/mcq-probe/prompts/MCQ_GENERATION_PROMPT.md
-MSQ_PROMPT  = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
+MCQ_PROMPT      = /mnt/skills/user/mcq-probe/prompts/MCQ_GENERATION_PROMPT.md
+MSQ_PROMPT      = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
+ORDERING_PROMPT = /mnt/skills/user/mcq-probe/prompts/ORDERING_GENERATION_PROMPT.md
 ```
 
 ---
@@ -39,9 +41,10 @@ MSQ_PROMPT  = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
 
 These are binding. They do not yield to judgment calls.
 
-- Load `MCQ_PROMPT` and `MSQ_PROMPT` on Trial 1, before any trial is generated. If either is unreadable: halt — REQ-MCQ-E-001.
-- Call `SCRIPT_TYPE` before every trial to determine the question type (mcq or msq).
+- Load `MCQ_PROMPT`, `MSQ_PROMPT`, and `ORDERING_PROMPT` on Trial 1, before any trial is generated. If any is unreadable: halt — REQ-MCQ-E-001.
+- Call `SCRIPT_TYPE` before every trial to determine the question type (mcq, msq, or ordering). If Step I5 determined the concept is non-procedural, pass `--exclude ordering` on every call this session — REQ-ORD-F-010.
 - Call `SCRIPT_AXIS` before every trial. Pass all axes used so far as `--exclude`, in order used.
+- For an ordering trial, if the assigned axis cannot force the trial's order, re-draw via `SCRIPT_AXIS` (excluding used + rejected axes), up to 3 attempts; on exhaustion, hold the axis and reconstruct the scenario. Never substitute the trial type — REQ-ORD-E-003.
 - Generate one trial at a time. Present it. Wait for response. Evaluate. Then call the scripts for the next trial's type and axis.
 - After each trial: generate the **Probe Target** descriptor internally (≤6 words). Never reveal it during the trial — it appears only in the report.
 - Run all N trials regardless of intermediate performance. No early termination.
@@ -52,7 +55,7 @@ These are binding. They do not yield to judgment calls.
 
 ## Intake Phase
 
-Execute steps I1 through I4 in order. Do not batch them.
+Execute steps I1 through I5 in order. Do not batch them.
 
 ### Step I1 — Concept (conversational)
 
@@ -128,8 +131,8 @@ Invoke AskUserQuestion with:
 }
 ```
 
-"Other" captures any custom domain. Store as DOMAIN. Pass to MCQ_PROMPT and MSQ_PROMPT for
-stem construction.
+"Other" captures any custom domain. Store as DOMAIN. Pass to MCQ_PROMPT, MSQ_PROMPT, and
+ORDERING_PROMPT for stem construction.
 
 ### Step I4 — Specific focus (AskUserQuestion)
 
@@ -159,6 +162,22 @@ If "Yes": follow up conversationally — "Describe the claims or failure modes y
 want prioritized." Store the stated focus areas and weight axis selection and stem
 construction toward them where applicable.
 
+### Step I5 — Procedural determination (internal)
+
+Once the concept is defined (Step I1), determine once whether it affords an ordered,
+dependency-bearing procedure — a task whose correct completion is a sequence of steps
+with a forced order, not just a set of parallel facts, tradeoffs, or independent
+choices. This is an internal judgment call made by the orchestrator; do not ask the
+learner.
+
+Store the result as `PROCEDURAL` (yes/no) — REQ-ORD-F-010.
+
+- If **no**: `ordering` is excluded from the type draw for the remainder of the
+  session. Call `SCRIPT_TYPE` with `--exclude ordering` on every trial this session,
+  so `ordering` is never drawn.
+- If **yes**: no exclusion is applied at intake. A trial-level axis re-draw may still
+  apply once an `ordering` trial is drawn — see Trial Loop, Step 2.
+
 ---
 
 ## Trial Loop
@@ -172,7 +191,13 @@ Invoke:
 python SCRIPT_TYPE
 ```
 
-- Exit code 0: use the printed type (`mcq` or `msq`) for this trial. Store as `QUESTION_TYPE`.
+If Step I5 determined the concept is non-procedural (`PROCEDURAL` = no), invoke
+instead:
+```
+python SCRIPT_TYPE --exclude ordering
+```
+
+- Exit code 0: use the printed type (`mcq`, `msq`, or `ordering`) for this trial. Store as `QUESTION_TYPE`.
 - Exit code non-zero: default to `mcq`. Log the fallback internally — REQ-MCQ-E-003.
 
 ### 2. Axis selection
@@ -187,42 +212,66 @@ Omit `--exclude` on Trial 1 (no prior axes).
 - Exit code 0: use the printed axis for this trial.
 - Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not already used this session. Log the fallback internally — REQ-MCQ-E-002.
 
+**Ordering axis re-draw (REQ-ORD-E-003, REQ-ORD-F-016).** If `QUESTION_TYPE` is
+`ordering`, confirm — per `ORDERING_PROMPT`'s axis-fit check — that the assigned axis
+can force this trial's order. If it cannot:
+
+1. Re-draw: `python SCRIPT_AXIS --exclude [axes used so far this session, in order] + [axes rejected for this trial]`.
+2. A rejected axis is **not** added to the session's used-axes list — it stays
+   available to later trials. Track it as rejected only for this trial's re-draw
+   attempts.
+3. Repeat up to 3 re-draw attempts total for this trial.
+4. If all 3 attempts are exhausted without a fitting axis, hold the last-drawn axis
+   and reconstruct the scenario (per `ORDERING_PROMPT`) to one that axis can force.
+   Do not substitute the trial type.
+
+Once the axis is settled (fit confirmed, or held after exhaustion), it is the
+**finally-used axis** for this trial — it, and only it, enters the session's
+axis-exclusion list (the `--exclude` argument on later trials) and the report's
+Axis Coverage.
+
 ### 3. Prompt load
 
-Trial 1 only: read `MCQ_PROMPT` and `MSQ_PROMPT`.
+Trial 1 only: read `MCQ_PROMPT`, `MSQ_PROMPT`, and `ORDERING_PROMPT`.
 
-If either is unreadable: halt immediately — REQ-MCQ-E-001.
+If any is unreadable: halt immediately — REQ-MCQ-E-001 / REQ-ORD-E-001.
 
-Retain both in context for all subsequent trials. Do not reload.
+Retain all three in context for all subsequent trials. Do not reload.
 
 ### 4. Trial construction and presentation
 
-Construct and present the trial per the construction sequence in `MCQ_PROMPT` (if `QUESTION_TYPE` is `mcq`) or `MSQ_PROMPT` (if `QUESTION_TYPE` is `msq`).
-The assigned axis is fixed — do not substitute.
+Construct and present the trial per the construction sequence in `MCQ_PROMPT` (if `QUESTION_TYPE` is `mcq`), `MSQ_PROMPT` (if `QUESTION_TYPE` is `msq`), or `ORDERING_PROMPT` (if `QUESTION_TYPE` is `ordering`).
+The assigned axis is fixed once settled per Step 2 — do not substitute further.
 
 ### 5. Wait
 
 For MCQ: present **MCQ** on its own line, then the question stem and choices A–D. Stop. Wait for the learner's response.
 For MSQ: present **MSQ** on its own line, then the question stem and choices A–E, with the count in the closing prompt. Stop. Wait for the learner's response. Accept any common format (comma-separated, space-separated, written out). Parse as a set of letters — order does not matter.
+For Ordering: present **ORD** on its own line, then the task scenario, the pool with one label per line, and a closing prompt disclosing K (the number of steps to arrange) but not D (the number of distractors). Stop. Wait for the learner's response. Accept any common format (comma-separated, space-separated, arrow-separated, numbered list), case-insensitive. Parse as an **ordered** list of labels — order is significant. An out-of-pool label or a repeated label is invalid: ask the learner to resubmit; do not count the attempt — REQ-ORD-E-002.
 
 ### 6. Evaluate and deliver breakdown
 
-Apply the MCQ or MSQ response protocol (see below) based on `QUESTION_TYPE`.
+Apply the MCQ, MSQ, or Ordering response protocol (see below) based on `QUESTION_TYPE`.
+For Ordering: correct iff the learner's ordered selected sequence exactly equals the
+correct sequence — the right steps, no distractors, none missing, exact order —
+REQ-ORD-F-007.
 
 ### 7. Internal record
 
 Generate the Probe Target descriptor: ≤6 words describing the specific aspect
 of the concept this trial tested (e.g., "Failure propagation under concurrent load").
-Do not reveal it to the learner.
+For Ordering, the descriptor names the procedure aspect tested (e.g., "Dual-write
+ordering before backfill"). Do not reveal it to the learner.
 
 Record internally:
 ```
-{ trial_number, question_type (mcq/msq), axis, grade (correct/incorrect), probe_target, gap_summary }
+{ trial_number, question_type (mcq/msq/ordering), axis, grade (correct/incorrect), probe_target, gap_summary }
 ```
 
 `gap_summary` is populated only for incorrect responses: the specific claim or
 mechanism the learner missed. For MSQ, note which picks were wrong and which correct
-answers were missed.
+answers were missed. For Ordering, note the false inclusions, the omissions, and the
+transposed pairs — REQ-ORD-F-009.
 
 ---
 
@@ -292,15 +341,62 @@ way — a wrong pick included, a correct pick missed, or both.
 
 ---
 
+### Ordering — Correct answer
+
+A response is correct when the learner's ordered selected sequence exactly matches
+the correct sequence — the right steps, none missing, no distractors included, in
+the exact forced order.
+
+1. Acknowledge briefly: "Correct." / "Right." / "That's it."
+2. State the axis: "The axis here is [axis]: [one sentence on what it tests in this scenario]."
+3. Explain why the sequence survives — address each forced precedence individually:
+   why that adjacency is forced under the axis.
+4. Address each distractor individually: the specific point where it fails selection
+   and why. Name the orthodox-but-wrong inclusion explicitly: "X is the orthodox
+   approach here — professionally sound in many contexts — but under [axis], it fails
+   because [mechanism]."
+5. Resolve the order-sensitive pairs: why the reverse order fails under projection.
+   If a near-duplicate distractor was a factor, explain what one phrase differentiates
+   the correct step from its twin and why that difference is decisive under the axis.
+6. Proceed immediately to the next trial. If this was trial N, proceed to the Analysis Phase instead.
+
+### Ordering — Incorrect answer
+
+A response is incorrect when the learner's ordered selected sequence differs from the
+correct sequence in any way — a distractor included, a correct step omitted, a
+correct step out of order, or any combination.
+
+1. State the axis first: "The axis here is [axis]: [one sentence]."
+2. Decompose the error into its two error classes, each addressed individually:
+   - **Selection errors** — for each distractor the learner included, why it fails
+     selection under the axis and what the axis was testing that this pick missed.
+     For each correct step the learner omitted, why it belongs — why it survives
+     projection.
+   - **Ordering errors** — for each transposed pair among the steps the learner did
+     select correctly, why that adjacency is forced under the axis and why the
+     learner's order fails projection.
+3. State the correct sequence directly: `X → Y → Z → W`.
+4. Explain why the correct sequence survives — each forced precedence individually.
+5. Address all distractors individually — the same full coverage as the correct-answer
+   protocol. Name the orthodox-but-wrong inclusion. Resolve the near-duplicate pair —
+   what one phrase differentiates the twins.
+6. Proceed to the next trial. If this was trial N, proceed to the Analysis Phase instead.
+
+**No nudge. No recovery exchanges.** This is an evaluation.
+
+---
+
 ## Tangent Handling
 
 If the learner diverts mid-trial to explore a related concept:
 
 1. Note the interruption point: which trial number and what was presented.
-2. Engage with the tangent conversationally. Do not run MCQ or MSQ trials on the tangent concept —
-   the probe is suspended, not extended.
+2. Engage with the tangent conversationally. Do not run MCQ, MSQ, or Ordering trials on
+   the tangent concept — the probe is suspended, not extended.
 3. When the learner signals readiness to continue, re-present the interrupted trial from
-   the beginning. Do not resume mid-question.
+   the beginning. Do not resume mid-question. For an Ordering trial, any re-presentation
+   — after a tangent or after a clarification exchange — uses the same pool and the same
+   labels: no re-shuffle, no regeneration — REQ-ORD-F-015.
 
 ---
 
@@ -368,10 +464,10 @@ Output as a single Markdown document. Render sections conditionally as specified
 ## Trial Log
 | # | Type | Probe Target | Axis | Grade | Gap |
 |---|---|---|---|---|---|
-| 1 | MCQ / MSQ | [descriptor] | [axis] | ✓ / ✗ | — / [specific failure point] |
+| 1 | MCQ / MSQ / ORD | [descriptor] | [axis] | ✓ / ✗ | — / [specific failure point] |
 ```
 
-`Type`: MCQ or MSQ.
+`Type`: MCQ, MSQ, or ORD.
 `Grade`: ✓ for correct, ✗ for incorrect.
 `Gap`: populated only for incorrect responses — the specific claim or mechanism missed.
 `Probe Target`: the ≤6-word descriptor generated after each trial.
@@ -430,10 +526,19 @@ correctly projected forward and why that projection was valid.
 ```
 
 Per incorrect trial, a structured entry:
+
+For MCQ / MSQ:
 - **Trial # — [Probe Target] ([axis]) [MCQ/MSQ]**
 - Chosen: [letter] for MCQ · [letters] for MSQ (include false positives and false negatives)
 - Failure point: [the specific claim or mechanism the chosen answer(s) violated]
 - What the correct answer required: [the property that survives projection under the axis]
+
+For Ordering (REQ-ORD-F-017):
+- **Trial # — [Probe Target] ([axis]) [ORD]**
+- Chosen sequence: [ordered list of labels as submitted]
+- Correct sequence: [ordered list of labels]
+- Selection errors: [false inclusions — distractors picked; omissions — correct steps missed], decomposed, or "none"
+- Ordering errors: [transposed forced pairs among the correctly-selected steps], decomposed, or "none"
 
 ---
 
@@ -469,17 +574,23 @@ Fundamental gap: the error pattern reveals that the core concept is not seated.
 State which specific claim or property is at issue and cite evidence from the
 trial results.
 
+For Ordering trials, apply this additionally (REQ-ORD-F-018): a transposition among
+an otherwise correctly-selected set of steps reads as a **surface gap** — the learner
+has the procedure but slipped on one forced adjacency. Repeated selection of the
+orthodox-but-wrong inclusion, or errors spanning both selection and ordering across
+trials, reads as a **fundamental gap**.
+
 ---
 
 ## Error Handling
 
-### REQ-MCQ-E-001 — MCQ_PROMPT or MSQ_PROMPT unreadable
+### REQ-MCQ-E-001 — MCQ_PROMPT, MSQ_PROMPT, or ORDERING_PROMPT unreadable
 
 Halt immediately. Report:
 
 > "mcq-probe cannot proceed — [filename] is unreadable at [path]. Resolve this before continuing."
 
-Do not attempt to generate trials from memory or internal knowledge. Both prompt
+Do not attempt to generate trials from memory or internal knowledge. All three prompt
 files are required. Their absence is not a degraded mode — it is a halt condition.
 
 ### REQ-MCQ-E-002 — SCRIPT_AXIS non-zero exit
@@ -493,3 +604,19 @@ internally — do not expose it to the learner. Present the trial normally.
 
 Default to `mcq` for this trial. Log the fallback internally — do not expose it to the
 learner. Present the trial normally.
+
+### REQ-ORD-E-002 — Invalid ordering response
+
+An out-of-pool label, a repeated label, or a response that cannot be parsed as an
+ordered list is invalid. Ask the learner to resubmit. Do not count the attempt against
+the trial — the trial is still awaiting a valid response.
+
+### REQ-ORD-E-003 — Ordering axis re-draw
+
+If the assigned axis cannot force the current ordering trial's order, re-draw via
+`SCRIPT_AXIS --exclude [axes used this session] + [axes rejected for this trial]`, up
+to 3 attempts. A rejected axis is not added to the session's used-axes list — it
+remains available to later trials. If all 3 re-draw attempts are exhausted, hold the
+last-drawn axis and reconstruct the scenario to one it can force. Never substitute the
+trial type mid-trial. Only the finally-used axis enters the session's axis-exclusion
+list and the report's Axis Coverage — REQ-ORD-F-016.
