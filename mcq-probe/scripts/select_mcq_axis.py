@@ -8,8 +8,8 @@ Usage:
 Output: one axis name on stdout
 Exit: 0 on success, 1 on error
 
-Pass axes in the order they were used. When all 8 axes have been excluded
-(N > 8 trials), only the most recently used axis is blocked — the
+Pass axes in the order they were used. When all 9 axes have been excluded
+(N > 9 trials), only the most recently used axis is blocked — the
 consecutive-repeat constraint is all that survives.
 """
 
@@ -26,6 +26,7 @@ AXES = [
     "time",
     "risk",
     "coupling",
+    "observability",
 ]
 
 
@@ -34,7 +35,7 @@ def select(exclude_ordered):
     available = [a for a in AXES if a not in excluded_set]
 
     if not available:
-        # All 8 exhausted — relax to only blocking the most recently used axis.
+        # All 9 exhausted — relax to only blocking the most recently used axis.
         last_used = exclude_ordered[-1] if exclude_ordered else None
         available = [a for a in AXES if a != last_used]
 

@@ -85,15 +85,15 @@ Invoke AskUserQuestion with:
         "description": "Five trials — broader axis coverage."
       },
       {
-        "label": "8",
-        "description": "Eight trials — full axis set."
+        "label": "9",
+        "description": "Nine trials — full axis set."
       }
     ]
   }]
 }
 ```
 
-"Other" captures any custom integer. If the learner enters a value outside 1–8,
+"Other" captures any custom integer. If the learner enters a value outside 1–9,
 ask them to choose a value in that range. Store as N.
 
 ### Step I3 — Domain preference (AskUserQuestion)
@@ -185,7 +185,7 @@ python SCRIPT_AXIS --exclude [comma-delimited list of all axes used so far, in o
 Omit `--exclude` on Trial 1 (no prior axes).
 
 - Exit code 0: use the printed axis for this trial.
-- Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling]` not already used this session. Log the fallback internally — REQ-MCQ-E-002.
+- Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not already used this session. Log the fallback internally — REQ-MCQ-E-002.
 
 ### 3. Prompt load
 
@@ -320,6 +320,7 @@ At most ⌊N/3⌋ incorrect answers to pass.
 | 5 | 1 |
 | 6 | 2 |
 | 8 | 2 |
+| 9 | 3 |
 
 ### Pattern analysis (internal — runs before report output)
 
@@ -388,7 +389,7 @@ Output as a single Markdown document. Render sections conditionally as specified
 | recognition | Yes / No | ✓ / ✗ / — |
 ```
 
-List all 8 axes. "No" for axes not reached. Grade is "—" for untested axes.
+List all 9 axes. "No" for axes not reached. Grade is "—" for untested axes.
 
 ---
 
@@ -401,7 +402,7 @@ List all 8 axes. "No" for axes not reached. Grade is "—" for untested axes.
 ```
 
 For each axis not reached in this session, write one sentence on what it would
-probe for this specific concept. If all 8 axes were covered, write: "All axes
+probe for this specific concept. If all 9 axes were covered, write: "All axes
 covered this session."
 
 ---
@@ -484,9 +485,9 @@ files are required. Their absence is not a degraded mode — it is a halt condit
 ### REQ-MCQ-E-002 — SCRIPT_AXIS non-zero exit
 
 Pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition,
-transfer, time, risk, coupling]` not already used this session. If all axes have been used,
-pick the first that is not the most recently used. Log the fallback internally — do not
-expose it to the learner. Present the trial normally.
+transfer, time, risk, coupling, observability]` not already used this session. If all axes
+have been used, pick the first that is not the most recently used. Log the fallback
+internally — do not expose it to the learner. Present the trial normally.
 
 ### REQ-MCQ-E-003 — SCRIPT_TYPE non-zero exit
 

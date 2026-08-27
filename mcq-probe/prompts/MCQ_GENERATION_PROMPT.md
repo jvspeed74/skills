@@ -167,6 +167,19 @@
       it costs. Wrong answers introduce tight coupling that appears innocuous but
       constrains downstream flexibility in ways the scenario makes material.
     </axis>
+
+    <axis name="observability">
+      Tests whether the learner can assess if an approach's success or failure is
+      detectable before consequences compound. The axis question: does a fault
+      surface where someone can see it in time to act, or does it stay silent
+      until damage has already occurred?
+
+      Survival test: the correct answer's failure mode is observable — it surfaces
+      a signal, error, or symptom in time to act. Wrong answers fail silently (no
+      signal until damage is done), rely on a check that does not actually observe
+      the failure mode the scenario implies, or surface a signal so late or so
+      buried that it does not support timely action.
+    </axis>
   </judgment-axes>
 
   <!-- ============================================================
