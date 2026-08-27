@@ -86,7 +86,7 @@ Invoke AskUserQuestion with:
       },
       {
         "label": "9",
-        "description": "Nine trials — full axis set (every axis covered)."
+        "description": "Nine trials — full axis set."
       }
     ]
   }]
