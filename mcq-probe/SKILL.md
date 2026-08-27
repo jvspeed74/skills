@@ -31,6 +31,9 @@ SCRIPT_AXIS = /mnt/skills/user/mcq-probe/scripts/select_mcq_axis.py
 # Read via the Read tool
 MCQ_PROMPT  = /mnt/skills/user/mcq-probe/prompts/MCQ_GENERATION_PROMPT.md
 MSQ_PROMPT  = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
+
+# Read via the Read tool — canonical axis set (single source of truth)
+AXES_DATA   = /mnt/skills/user/mcq-probe/axes.json
 ```
 
 ---
@@ -39,7 +42,8 @@ MSQ_PROMPT  = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
 
 These are binding. They do not yield to judgment calls.
 
-- Load `MCQ_PROMPT` and `MSQ_PROMPT` on Trial 1, before any trial is generated. If either is unreadable: halt — REQ-MCQ-E-001.
+- Load `MCQ_PROMPT`, `MSQ_PROMPT`, and `AXES_DATA` on Trial 1, before any trial is generated. If any is unreadable: halt — REQ-MCQ-E-001.
+- `AXES_DATA` (axes.json) is the single source of truth for the axis set. Its entries — `name`, `summary`, `survival_test` — drive trial construction, the fallback order, and report coverage. Do not hardcode or reconstruct the axis list from memory.
 - Call `SCRIPT_TYPE` before every trial to determine the question type (mcq or msq).
 - Call `SCRIPT_AXIS` before every trial. Pass all axes used so far as `--exclude`, in order used.
 - Generate one trial at a time. Present it. Wait for response. Evaluate. Then call the scripts for the next trial's type and axis.
@@ -85,16 +89,17 @@ Invoke AskUserQuestion with:
         "description": "Five trials — broader axis coverage."
       },
       {
-        "label": "8",
-        "description": "Eight trials — full axis set."
+        "label": "9",
+        "description": "Nine trials — full axis set (every axis covered)."
       }
     ]
   }]
 }
 ```
 
-"Other" captures any custom integer. If the learner enters a value outside 1–8,
-ask them to choose a value in that range. Store as N.
+The upper bound equals the number of axes in `AXES_DATA` (currently 9). "Other"
+captures any custom integer. If the learner enters a value outside 1 to that
+number of axes, ask them to choose a value in that range. Store as N.
 
 ### Step I3 — Domain preference (AskUserQuestion)
 
@@ -185,15 +190,15 @@ python SCRIPT_AXIS --exclude [comma-delimited list of all axes used so far, in o
 Omit `--exclude` on Trial 1 (no prior axes).
 
 - Exit code 0: use the printed axis for this trial.
-- Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling]` not already used this session. Log the fallback internally — REQ-MCQ-E-002.
+- Exit code 1: pick the first axis in `AXES_DATA` order (the axes.json loaded on Trial 1) not already used this session. Log the fallback internally — REQ-MCQ-E-002.
 
-### 3. Prompt load
+### 3. Prompt and axis-data load
 
-Trial 1 only: read `MCQ_PROMPT` and `MSQ_PROMPT`.
+Trial 1 only: read `MCQ_PROMPT`, `MSQ_PROMPT`, and `AXES_DATA`.
 
-If either is unreadable: halt immediately — REQ-MCQ-E-001.
+If any is unreadable: halt immediately — REQ-MCQ-E-001.
 
-Retain both in context for all subsequent trials. Do not reload.
+Retain all three in context for all subsequent trials. Do not reload.
 
 ### 4. Trial construction and presentation
 
@@ -320,6 +325,7 @@ At most ⌊N/3⌋ incorrect answers to pass.
 | 5 | 1 |
 | 6 | 2 |
 | 8 | 2 |
+| 9 | 3 |
 
 ### Pattern analysis (internal — runs before report output)
 
@@ -388,7 +394,7 @@ Output as a single Markdown document. Render sections conditionally as specified
 | recognition | Yes / No | ✓ / ✗ / — |
 ```
 
-List all 8 axes. "No" for axes not reached. Grade is "—" for untested axes.
+List all axes from `AXES_DATA`, in file order. "No" for axes not reached. Grade is "—" for untested axes.
 
 ---
 
@@ -401,8 +407,8 @@ List all 8 axes. "No" for axes not reached. Grade is "—" for untested axes.
 ```
 
 For each axis not reached in this session, write one sentence on what it would
-probe for this specific concept. If all 8 axes were covered, write: "All axes
-covered this session."
+probe for this specific concept. If all axes in `AXES_DATA` were covered, write:
+"All axes covered this session."
 
 ---
 
@@ -472,21 +478,21 @@ trial results.
 
 ## Error Handling
 
-### REQ-MCQ-E-001 — MCQ_PROMPT or MSQ_PROMPT unreadable
+### REQ-MCQ-E-001 — MCQ_PROMPT, MSQ_PROMPT, or AXES_DATA unreadable
 
 Halt immediately. Report:
 
 > "mcq-probe cannot proceed — [filename] is unreadable at [path]. Resolve this before continuing."
 
 Do not attempt to generate trials from memory or internal knowledge. Both prompt
-files are required. Their absence is not a degraded mode — it is a halt condition.
+files and the axis-data file (`AXES_DATA`) are required — the prompts source their
+axis definitions from it. Their absence is not a degraded mode — it is a halt condition.
 
 ### REQ-MCQ-E-002 — SCRIPT_AXIS non-zero exit
 
-Pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition,
-transfer, time, risk, coupling]` not already used this session. If all axes have been used,
-pick the first that is not the most recently used. Log the fallback internally — do not
-expose it to the learner. Present the trial normally.
+Pick the first axis in `AXES_DATA` order (the axes.json loaded on Trial 1) not already
+used this session. If all axes have been used, pick the first that is not the most recently
+used. Log the fallback internally — do not expose it to the learner. Present the trial normally.
 
 ### REQ-MCQ-E-003 — SCRIPT_TYPE non-zero exit
 

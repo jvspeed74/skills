@@ -76,95 +76,23 @@
       Do not switch axes mid-generation.
     </overview>
 
-    <axis name="recognition">
-      Tests whether the learner can identify a concept correctly when it appears
-      in a non-canonical form, partial description, or edge-case presentation.
-      The axis question: does the learner recognize the concept when it is not
-      labeled or framed in the way it was taught?
+    <axis-definitions>
+      The canonical axis definitions are the single source of truth in axes.json,
+      loaded once at session start (see the skill's File Path Constants). Do not
+      restate the axis list here — read it from that file.
 
-      Survival test: correct answers accurately name, classify, or identify the
-      concept given the scenario's conditions. Wrong answers pattern-match
-      superficially to the scenario but mis-identify the concept, apply the wrong
-      category, or conflate it with a related but distinct concept.
-    </axis>
+      Each axis entry has three fields:
+        - name: the axis identifier passed by select_mcq_axis.py.
+        - summary: what the axis tests and its guiding question.
+        - survival_test: which property makes correct answers survive forward
+          projection, and how wrong answers fail under the axis.
 
-    <axis name="application">
-      Tests whether the learner can correctly apply the concept to produce a valid
-      outcome in a specific situation. The axis question: does the learner know
-      what to do — not just what the concept is?
-
-      Survival test: correct answers produce the intended outcome given the
-      scenario's constraints. Wrong answers apply the concept incorrectly, apply
-      it to the wrong part of the system, or produce a result that looks plausible
-      but breaks under the scenario's actual requirements.
-    </axis>
-
-    <axis name="failure-diagnosis">
-      Tests whether the learner can identify when and why a concept is being
-      violated, misapplied, or absent — and trace the failure to its root cause.
-      The axis question: does the learner recognize the failure mode in action?
-
-      Survival test: correct answers correctly identify what is wrong and why.
-      Wrong answers identify the wrong failure, identify the right failure but for
-      the wrong reason, or identify a surface symptom without the root cause.
-    </axis>
-
-    <axis name="boundary-condition">
-      Tests whether the learner understands where the concept's validity breaks
-      down, what assumptions it depends on, and what happens when those assumptions
-      are violated. The axis question: does the learner know the limits of the concept?
-
-      Survival test: correct answers correctly identify the boundary condition and
-      its consequence. Wrong answers treat the concept as having no limits, state
-      the wrong boundary, or correctly identify the boundary but misstate what
-      happens when it is crossed.
-    </axis>
-
-    <axis name="transfer">
-      Tests whether the learner can carry the concept into a domain or context
-      different from the one in which it was taught. The axis question: does
-      the learner understand the concept at the level of principle, not just
-      the specific example they learned it from?
-
-      Survival test: correct answers apply the concept's underlying logic correctly
-      in the new domain. Wrong answers apply surface features of the original
-      domain example rather than the concept's actual mechanism, or apply the
-      concept to the wrong element of the new domain.
-    </axis>
-
-    <axis name="time">
-      Tests whether the learner can reason about how an approach degrades or
-      creates maintenance burden as conditions evolve. The axis question: does
-      this choice remain sound as the system or situation changes?
-
-      Survival test: correct answers hold up under temporal projection. Wrong
-      answers appear valid at t=0 but accumulate latent cost, brittleness, or
-      maintenance overhead that makes them untenable as conditions shift.
-    </axis>
-
-    <axis name="risk">
-      Tests whether the learner can identify failure modes that a particular
-      approach introduces and whether those failure modes are acceptable given
-      the scenario's constraints. The axis question: does the learner correctly
-      assess the failure surface this choice creates?
-
-      Survival test: correct answers either avoid the dangerous failure mode or
-      correctly account for it. Wrong answers introduce unacceptable failure
-      surfaces, underestimate the probability or consequence of failure, or apply
-      a conservative-looking approach that is actually fragile under the specific
-      failure class the scenario implies.
-    </axis>
-
-    <axis name="coupling">
-      Tests whether the learner can identify when an approach creates dependencies
-      that constrain or complicate future changes. The axis question: does this
-      choice introduce structural entanglement that will compound over time?
-
-      Survival test: correct answers avoid the coupling the scenario implies is
-      problematic, or correctly characterize why the coupling exists and what it
-      costs. Wrong answers introduce tight coupling that appears innocuous but
-      constrains downstream flexibility in ways the scenario makes material.
-    </axis>
+      For the axis assigned to this trial, use its summary to shape the scenario
+      and its survival_test to construct the correct answers and verify that every
+      wrong answer fails only under forward projection. If axes.json was not
+      loaded or the assigned axis is absent from it, halt (see the skill's
+      error handling) — do not reconstruct axis definitions from memory.
+    </axis-definitions>
   </judgment-axes>
 
   <!-- ============================================================

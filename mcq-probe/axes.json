@@ -1,0 +1,47 @@
+[
+  {
+    "name": "recognition",
+    "summary": "whether the learner can identify a concept correctly when it appears in a non-canonical form, partial description, or edge-case presentation — does the learner recognize the concept when it is not labeled or framed the way it was taught?",
+    "survival_test": "the correct answer accurately names, classifies, or identifies the concept given the scenario's conditions. Wrong answers pattern-match superficially to the scenario but mis-identify the concept, apply the wrong category, or conflate it with a related but distinct concept."
+  },
+  {
+    "name": "application",
+    "summary": "whether the learner can correctly apply the concept to produce a valid outcome in a specific situation — does the learner know what to do, not just what the concept is?",
+    "survival_test": "the correct answer produces the intended outcome given the scenario's constraints. Wrong answers apply the concept incorrectly, apply it to the wrong part of the system, or produce a result that looks plausible but breaks under the scenario's actual requirements."
+  },
+  {
+    "name": "failure-diagnosis",
+    "summary": "whether the learner can identify when and why a concept is being violated, misapplied, or absent, and trace the failure to its root cause — does the learner recognize the failure mode in action?",
+    "survival_test": "the correct answer correctly identifies what is wrong and why. Wrong answers either identify the wrong failure, identify the right failure but for the wrong reason, or identify a surface symptom without the root cause."
+  },
+  {
+    "name": "boundary-condition",
+    "summary": "whether the learner understands where the concept's validity breaks down, what assumptions it depends on, and what happens when those assumptions are violated — does the learner know the limits of the concept?",
+    "survival_test": "the correct answer correctly identifies the boundary condition and its consequence. Wrong answers either treat the concept as having no limits, state the wrong boundary, or correctly identify the boundary but misstate what happens when it is crossed."
+  },
+  {
+    "name": "transfer",
+    "summary": "whether the learner can carry the concept into a domain or context different from the one in which it was taught — does the learner understand the concept at the level of principle, not just the specific example they learned it from?",
+    "survival_test": "the correct answer applies the concept's underlying logic correctly in the new domain. Wrong answers apply surface features of the original domain example rather than the concept's actual mechanism, or apply the concept to the wrong element of the new domain."
+  },
+  {
+    "name": "time",
+    "summary": "whether the learner can reason about how an approach degrades or creates maintenance burden as conditions evolve — does this choice remain sound as the system or situation changes?",
+    "survival_test": "the correct answer holds up under temporal projection. Wrong answers appear valid at t=0 but accumulate latent cost, brittleness, or maintenance overhead that makes them untenable as conditions shift."
+  },
+  {
+    "name": "risk",
+    "summary": "whether the learner can identify the failure modes a particular approach introduces and whether those failure modes are acceptable given the scenario's constraints — does the learner correctly assess the failure surface this choice creates?",
+    "survival_test": "the correct answer either avoids the dangerous failure mode or correctly accounts for it. Wrong answers introduce unacceptable failure surfaces, underestimate the probability or consequence of failure, or apply a conservative-looking approach that is actually fragile under the specific failure class the scenario implies."
+  },
+  {
+    "name": "coupling",
+    "summary": "whether the learner can identify when an approach creates dependencies that constrain or complicate future changes — does this choice introduce structural entanglement that will compound over time?",
+    "survival_test": "the correct answer avoids the coupling the scenario implies is problematic, or correctly characterizes why the coupling exists and what it costs. Wrong answers introduce tight coupling that appears innocuous but constrains downstream flexibility in ways the scenario makes material."
+  },
+  {
+    "name": "observability",
+    "summary": "whether an approach's success or failure is detectable before consequences compound — does a fault surface where someone can see it, or stay silent until it has already caused damage?",
+    "survival_test": "the correct answer's failure mode is observable: it surfaces a signal, error, or symptom in time to act. Wrong answers fail silently (no signal until damage is done), rely on a check that does not actually observe the failure mode the scenario implies, or surface a signal so late or so buried that it does not support timely action."
+  }
+]
