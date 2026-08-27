@@ -1,6 +1,6 @@
 # Plan — Ordering Question Type (mcq-probe)
 
-**Status:** Draft — reads confirmed (OQ 1–5) and OQ 6 resolved (re-draw axis + intake gate) on 2026-08-27. Awaiting execute signal. No implementation until an explicit go.
+**Status:** Implemented and validated — 2026-08-27. OQ 1–5 confirmed, OQ 6 resolved (re-draw axis + intake gate). All requirements built and reviewed; per-axis dry-run gate passed (9/9 axes constructable); shipped in commit `68c8054`, PR #2.
 **Date:** 2026-08-27
 **Branch:** `claude/ordering-question-type-ce13aa`
 **Target skill:** `mcq-probe`
