@@ -8,40 +8,26 @@ Usage:
 Output: one axis name on stdout
 Exit: 0 on success, 1 on error
 
-The axis set is the single source of truth in axes.json (sibling of this
-script's parent directory). Adding or removing an axis there requires no
-change here.
-
-Pass axes in the order they were used. When every axis has been excluded
-(N > number of axes), only the most recently used axis is blocked — the
+Pass axes in the order they were used. When all 9 axes have been excluded
+(N > 9 trials), only the most recently used axis is blocked — the
 consecutive-repeat constraint is all that survives.
 """
 
 import argparse
-import json
 import random
 import sys
-from pathlib import Path
 
-AXES_PATH = Path(__file__).resolve().parent.parent / "axes.json"
-
-
-def load_axes():
-    """Return the axis names from axes.json, in file order."""
-    try:
-        with open(AXES_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-        names = [entry["name"] for entry in data]
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        print(f"error: cannot load axes from {AXES_PATH}: {exc}", file=sys.stderr)
-        sys.exit(1)
-    if not names:
-        print(f"error: no axes defined in {AXES_PATH}", file=sys.stderr)
-        sys.exit(1)
-    return names
-
-
-AXES = load_axes()
+AXES = [
+    "recognition",
+    "application",
+    "failure-diagnosis",
+    "boundary-condition",
+    "transfer",
+    "time",
+    "risk",
+    "coupling",
+    "observability",
+]
 
 
 def select(exclude_ordered):
@@ -49,7 +35,7 @@ def select(exclude_ordered):
     available = [a for a in AXES if a not in excluded_set]
 
     if not available:
-        # All axes exhausted — relax to only blocking the most recently used axis.
+        # All 9 exhausted — relax to only blocking the most recently used axis.
         last_used = exclude_ordered[-1] if exclude_ordered else None
         available = [a for a in AXES if a != last_used]
 
