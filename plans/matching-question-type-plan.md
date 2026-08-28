@@ -1,6 +1,8 @@
 # Plan — Matching Question Type (mcq-probe)
 
-**Status:** Design — awaiting readback confirmation (OQ 1–7). No code written.
+**Status:** Implemented (commit `6715bc8`: `MATCHING_GENERATION_PROMPT.md`, `SKILL.md`, `select_question_type.py`, this plan). OQ 1–7 are resolved per §5 and already shipped as constructed — the recommendations below were not left pending; the generation prompt is built on them directly. The mandatory per-axis dry-run gate (§16 step 5) is now complete — see the Dry-Run Gate Results table at the end of §16. Ready for merge review.
+
+*This status line originally read "Design — awaiting readback confirmation" when this plan was authored; it is corrected here for accuracy, since implementation landed in the same commit that introduced the plan.*
 **Date:** 2026-08-27
 **Branch:** `claude/mcq-probe-matching-questions-9d0f7a`
 **Target skill:** `mcq-probe`
@@ -404,9 +406,25 @@ Built to expose the two matching-specific ceilings the §8 examples (all n=4) do
 
 ## 16. Implementation order
 
-1. **Confirm the readback (§0) and OQ 1–7.** Do not author files until the surplus-response interpretation is confirmed — it is load-bearing.
-2. Author `MATCHING_GENERATION_PROMPT.md` — full XML: purpose, 9 axes reframed for matching (prompt-role→response-role semantic + wrong-attachment failure mode per axis; the `transfer` reframing carries the domain-vocabulary-inversion rule, REQ-MAT-F-020), question/prompt/response requirements, the grid-design law (§4) and required constructs, construction sequence + validation checklist (§6), feedback protocols (§7), the three worked examples (§8.1–8.3), edge cases (§13).
-3. Modify `select_question_type.py` — add `"matching"` to `TYPES`. (`--exclude` multi already works.)
-4. Modify `SKILL.md` in section order: Intake Phase (matchable determination → combined `--exclude`) → File Path Constants → Active Constraints → prompt-load (Trial-loop step 3) → Trial-loop present/wait/evaluate + axis re-draw (steps 4–6) → Response Protocol (Matching correct/incorrect) → internal record schema → Report Format (Type column + Gap Inventory) → Error Handling (extend E-001; add E-002, E-003).
-5. **Mandatory gate:** dry-run one matching trial per axis (all 9) to confirm a dense, cross-viable, uniquely-resolvable grid is constructable, and to exercise the axis-fit fallback on the hostile axes (recognition, transfer, coupling). This is the R-1/R-2/R-4 validation — do not ship without it.
+1. ~~Confirm the readback (§0) and OQ 1–7.~~ **Done.** Resolved per §5; the surplus-response interpretation (OQ 1) is load-bearing throughout the shipped generation prompt.
+2. ~~Author `MATCHING_GENERATION_PROMPT.md`~~ **Done** — full XML: purpose, 9 axes reframed for matching (prompt-role→response-role semantic + wrong-attachment failure mode per axis; the `transfer` reframing carries the domain-vocabulary-inversion rule, REQ-MAT-F-020), question/prompt/response requirements, the grid-design law (§4) and required constructs, construction sequence + validation checklist (§6), feedback protocols (§7), edge cases (§13), and — as of the dry-run gate below — 9 worked examples (one per axis) plus 3 axis-fit fallback exercises.
+3. ~~Modify `select_question_type.py`~~ **Done** — `"matching"` is in `TYPES`.
+4. ~~Modify `SKILL.md`~~ **Done** — Intake Phase (matchable determination → combined `--exclude`), File Path Constants, Active Constraints, prompt-load, Trial-loop present/wait/evaluate + axis re-draw, Response Protocol (Matching correct/incorrect), internal record schema, Report Format (Type column + Gap Inventory), Error Handling (E-001/E-002/E-003) are all wired.
+5. **Mandatory gate — Done.** All 9 axes dry-run in `MATCHING_GENERATION_PROMPT.md`'s `<worked-examples>` (examples 1–9), each confirmed dense/cross-viable/uniquely-resolvable against the internal-validation checklist (§6). The axis-fit fallback (construction-sequence step 2 / REQ-MAT-E-003) is exercised for all three hostile axes (recognition, transfer, coupling) in the new `<axis-fit-fallback-exercises>` section. Results below.
 6. Optional: reweight type distribution after observing pass rates; add the CLAUDE.md doctrine note.
+
+### Dry-Run Gate Results (§16 step 5)
+
+| Axis | Concept (domain) | Near-duplicate cell | Orthodox-but-wrong | Fallback exercised | Verdict |
+|---|---|---|---|---|---|
+| failure-diagnosis | TCP throughput anomalies (networking) | prompts 2×4, responses B×D | E — capacity-bound first guess | — (example 1, pre-existing) | PASS |
+| boundary-condition | Tire thermal window (motorsport) | prompts 2×3, responses D×A | C — "driver overdriving" | — (example 2, pre-existing) | PASS |
+| transfer | Little's Law (multi-domain: hospital/software/coffee/factory) | two cells: {1,2}×{B,D}, {3,4}×{E,A} | C — throughput-from-time-cut misapplication | Yes — exercise 1, concept without a non-strained cross-domain analogue (SameSite cookies), redraws to boundary-condition | PASS |
+| recognition | Concurrency bug classification (software) | prompts 1×3 (deadlock/livelock), responses B×E | D — "split the lock" | Yes — exercise 1, concept with no true-identity ambiguity (retry-backoff params), redraws to application | PASS |
+| application | Retry-with-backoff outcomes (distributed systems) | prompts 1×2, responses C×E | A — jitter-benefit generalization | — | PASS |
+| time | Read-after-write visibility (replication + cache TTL) | prompts 3×4, responses A×D | C — write-relative TTL misconception (coincidentally correct once) | — | PASS |
+| risk | Schema-migration constraints (databases) | prompts 1×2, responses D×B | E — "wrap it in a transaction" | — | PASS |
+| coupling | Service-decomposition arrangements (architecture) | prompts 1×3, responses D×E | C — "separate databases ⇒ decoupled" | Yes — exercise 3, concept with no second component to entangle with (hash table resizing), redraws to boundary-condition | PASS |
+| observability | Monitoring-signal selection (SRE) | prompts 2×4, responses C×E | D — aggregate error-rate/latency dashboard | — | PASS |
+
+**Overall verdict: PASS, 9/9.** Every axis produces a grid satisfying the full internal-validation checklist (§6): cross-viability in both directions, no-elimination-shortcut under D=1 (all nine examples use n=4, D=1 — the n=3/D≥2 floor from §5 is untested by this gate and remains a construction-time responsibility, not a gate finding), a unique bijection, ≥1 near-duplicate cell, and ≥1 orthodox-but-wrong distractor whose failure is argued explicitly rather than asserted. The three hostile axes named in this gate (R-2) each additionally demonstrate the axis-fit-rejection path firing on a genuinely mismatched concept and landing cleanly on a fitting axis, closing out R-1/R-2/R-4 as mitigated rather than merely designed-for. This clears the item explicitly deferred at merge in commit `6715bc8`.

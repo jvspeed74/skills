@@ -1389,7 +1389,930 @@
         resolution.
       </annotation>
     </example>
+
+    <example id="4" axis="recognition" n="4" d="1" pool="A-E" correct-key="1-B,2-C,3-E,4-A">
+      <concept>Concurrency bug classification (deadlock, livelock, starvation, race condition)</concept>
+      <domain>software / systems</domain>
+
+      <stem>
+        Match each observed thread-behavior case to what it actually is.
+        Not every classification is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="3">
+          Two worker threads each hold one of two locks and each is blocked
+          waiting on the lock the other holds; CPU usage for both threads
+          drops to zero and stays there, with no timeout configured on
+          either lock.
+        </item>
+        <item label="2">
+          A background thread assigned the lowest scheduling priority makes
+          no progress for extended periods: it holds no lock and is not
+          waiting on any other thread's action, but the scheduler keeps
+          handing available CPU time to other runnable threads first.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="1">
+          Two worker threads each repeatedly detect that the other has
+          changed a shared piece of state and each rolls back and retries
+          its own operation in response; CPU usage for both threads stays
+          high throughout, and neither thread ever holds a lock the other
+          is waiting on.
+        </item>
+        <item label="4">
+          Two threads increment a shared counter without any synchronization
+          between them; the program always terminates normally, but the
+          final count is occasionally lower than the true number of
+          increments performed.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="4">
+          Multiple threads read and modify the same memory without
+          coordination, so the final result depends on the exact order
+          their operations happen to interleave, occasionally losing an
+          update.
+        </item>
+        <item label="B" role="correct-for near-duplicate" pair-with="1">
+          Two or more threads each hold a resource the other needs and each
+          waits on the other to release it, so neither can ever proceed — a
+          fixed circular dependency with no timeout to break it.
+        </item>
+        <item label="C" role="correct-for" pair-with="2">
+          A thread makes no progress because the scheduler consistently
+          gives available CPU time to other runnable threads first, leaving
+          it waiting indefinitely for a turn that keeps getting deferred.
+        </item>
+        <item label="D" role="orthodox-but-wrong">
+          The threads are contending too heavily for a single lock;
+          splitting that lock into several smaller locks over separate
+          pieces of state reduces the contention.
+        </item>
+        <item label="E" role="correct-for near-duplicate" pair-with="3">
+          Two or more threads keep detecting a conflict from each other's
+          actions and keep retrying in response, so each stays busy but
+          none of them ever holds the resource long enough to finish — no
+          thread is ever blocked, all remain runnable throughout.
+        </item>
+      </responses>
+
+      <correct-key>1→B, 2→C, 3→E, 4→A (D unused)</correct-key>
+
+      <annotation>
+        Cross-viability: B (circular wait) is surface-viable for 1 (direct)
+        and 3 (surface: "two threads stuck due to each other's actions"
+        reads as a circular-dependency candidate before registering that 3's
+        threads are never blocked). E (busy-retry) is surface-viable for 3
+        (direct) and 1 (surface: "both back off and interact badly" could
+        misread as an active retry pattern before registering 1's CPU drops
+        to zero and stays there). C (starvation) is surface-viable for 2
+        (direct) and softly for 1/3 (any "thread not progressing" framing
+        invites it before the specific mechanism is checked). A (race
+        condition) is surface-viable for 4 (direct) and softly for 3 (3's
+        "detects that the other has changed shared state" reads like
+        concurrent-access framing before noting 3 never touches a lock at
+        all). D (orthodox lock-contention fix) is surface-viable for 1
+        (lock-related, obviously), 3 (looks like contention over shared
+        state), and softly 4 (shared-state framing).
+
+        Near-duplicate confusion cell: prompts 1 and 3 (twin: both are "two
+        worker threads stuck due to interacting with each other") crossed
+        with responses B and E (twin: both describe two threads locked in a
+        mutually-caused stall). The one differentiating projection: is a
+        thread actually BLOCKED, holding a resource and waiting on the
+        other (1, CPU flat at zero, no timeout to break it → B), or is it
+        actively RUNNING and retrying in response to the other's changes,
+        never blocked at all (3, CPU stays high, neither ever holds a lock
+        the other waits on → E)? "Two threads stuck because of each other"
+        is the surface feature shared by both twins; whether CPU drops to
+        zero (blocked) or stays high (spinning) is the projected
+        differentiator. Cross-wiring 1↔3 / B↔E is the canonical
+        transposition error — the textbook deadlock/livelock confusion.
+
+        Orthodox-but-wrong (D): "too much lock contention, split the lock"
+        is the reflexive fix for any thread interference — professionally
+        sound advice in general. It matches nothing here: prompt 1's
+        threads are in a fixed circular wait that persists regardless of
+        lock granularity (splitting locks doesn't fix ordering); prompt 3
+        has no locks involved at all; prompt 4's problem is missing
+        synchronization, not excess contention on one lock.
+
+        Unique bijection: prompt 2 (explicitly holds no lock, waits on no
+        other thread, just deferred by the scheduler) resolves only to C;
+        prompt 4 (unsynchronized shared counter, no hang) resolves only to
+        A; prompts 1 and 3 resolve to B and E only once the blocked-vs-
+        spinning projection is applied; D attaches to nothing. No second
+        complete assignment survives — attaching B to 3 directly
+        contradicts 3's stated "neither thread ever holds a lock the other
+        is waiting on," and attaching E to 1 directly contradicts 1's
+        stated zero CPU usage.
+
+        No-elimination-shortcut (D=1): after correctly placing 2→C and
+        4→A, the learner still faces {1,3}×{B,D,E} — D (the lock-splitting
+        fix) remains surface-plausible for both remaining prompts, so the
+        pairing is not a forced 2-cycle; the learner must genuinely project
+        the blocked-vs-spinning distinction to split B from E and
+        separately reject D.
+      </annotation>
+    </example>
+
+    <example id="5" axis="application" n="4" d="1" pool="A-E" correct-key="1-C,2-E,3-D,4-B">
+      <concept>Retry-with-backoff behavior under different parameter and dependency conditions</concept>
+      <domain>distributed systems / client-side resilience</domain>
+
+      <stem>
+        Match each retry configuration and condition to what actually
+        results from applying it. Not every outcome is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="2">
+          A client retries a failing call up to 3 times with a fixed 100ms
+          backoff and no randomization, against a dependency that many
+          other clients are also calling simultaneously right after a
+          shared upstream outage clears.
+        </item>
+        <item label="2" role="near-duplicate" pair-with="1">
+          A client retries a failing call with backoff capped at a maximum
+          delay of 2 seconds and randomization enabled, against a
+          dependency whose typical recovery time after a failure is around
+          30 seconds.
+        </item>
+        <item label="3">
+          A client sets no upper bound on its retry count, with backoff
+          capped at 500ms, against a downstream dependency that has failed
+          permanently due to a misconfigured credential.
+        </item>
+        <item label="4">
+          A client retries a failing call exactly once, immediately and
+          with no delay, against a dependency that experiences transient
+          failures lasting a few hundred milliseconds at a time.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="orthodox-but-wrong">
+          Adding randomization to a retry's backoff delay spreads retries
+          out over time so that many clients recovering from the same
+          outage do not all retry at once.
+        </item>
+        <item label="B" role="correct-for" pair-with="4">
+          The single immediate retry lands within the same short failure
+          window often enough that many retried calls fail for the same
+          reason as the original call, since the dependency has not yet
+          cleared its transient condition.
+        </item>
+        <item label="C" role="correct-for near-duplicate" pair-with="1">
+          Because every client backs off on the same fixed schedule with no
+          randomization, their retries re-synchronize and arrive at the
+          dependency in bursts, reproducing the load spike the backoff was
+          meant to smooth out.
+        </item>
+        <item label="D" role="correct-for" pair-with="3">
+          Because the retry count has no upper bound, the client continues
+          issuing calls indefinitely against a dependency that will never
+          recover from the underlying problem, consuming client resources
+          and connection slots with no path to success.
+        </item>
+        <item label="E" role="correct-for near-duplicate" pair-with="2">
+          The capped, randomized delay never grows past 2 seconds even as
+          failures continue, so retries keep arriving throughout the entire
+          30-second recovery window instead of tapering off — the cap
+          prevents the backoff from ever approaching the dependency's
+          actual recovery time.
+        </item>
+      </responses>
+
+      <correct-key>1→C, 2→E, 3→D, 4→B (A unused)</correct-key>
+
+      <annotation>
+        Cross-viability: C (resync into bursts) is surface-viable for 1
+        (direct) and 2 (a shallow reading of "backoff didn't help" could
+        misattribute the resync mechanism to 2 before noting 2 has
+        randomization enabled). E (cap too low relative to recovery time)
+        is surface-viable for 2 (direct) and 1 (before noting 1 involves
+        multiple synchronized clients rather than a single client's own
+        cap). D (unbounded retries) is surface-viable for 3 (direct) and
+        softly for 2 (a long recovery window superficially resembles "no
+        path to success" before noting 2's dependency does eventually
+        recover). B (single retry, same window) is surface-viable for 4
+        (direct) and softly for 3 (both read as "retry against a failing
+        dependency, fails again" before the retry-count difference is
+        registered). A (orthodox randomization benefit) is surface-viable
+        across all four — any retry-and-backoff scenario invites the
+        general "randomization prevents synchronized retries" claim as a
+        lure.
+
+        Near-duplicate confusion cell: prompts 1 and 2 (twin: both are
+        backoff configurations that fail to relieve pressure on the
+        dependency) crossed with responses C and E (twin: both describe
+        retries continuing to pressure the dependency despite backoff being
+        configured). The differentiating projection: is the problem that
+        MULTIPLE clients synchronize because randomization is absent (1, no
+        jitter, many simultaneous clients → C), or that a SINGLE client's
+        delay is capped well below the dependency's actual recovery time
+        (2, jitter present, 2-second cap vs. 30-second recovery → E)? Both
+        responses describe "backoff configured, pressure continues" on
+        first read; only checking whether jitter is present and comparing
+        the cap to the recovery time resolves which mechanism actually
+        applies. Attaching C to 2 is directly contradicted by 2's stated
+        randomization; attaching E to 1 is directly contradicted by 1's
+        stated single fixed schedule with no cap-vs-recovery-time framing
+        at all.
+
+        Orthodox-but-wrong (A): "randomization spreads retries so clients
+        don't resync" is the textbook justification for jitter — true in
+        general, and it is in fact why prompt 2 has jitter enabled, which
+        makes it a tempting attachment there. But A describes the BENEFIT
+        jitter provides against a synchronization problem; prompt 2's
+        actual outcome has nothing to do with synchronization (2 is a
+        single client, not many), and prompt 1 — the scenario that DOES
+        have a synchronization problem — is exactly the one where jitter is
+        absent, so A isn't a produced outcome of prompt 1 either. A never
+        describes what actually happened in any of these four cases; it
+        describes a benefit that would apply to a client not shown here.
+
+        Unique bijection: prompt 3 (no retry limit, permanently failed
+        dependency) resolves only to D; prompt 4 (single immediate retry,
+        short transient window) resolves only to B; prompts 1 and 2 resolve
+        to C and E respectively only once the jitter-present /
+        cap-vs-recovery-time projection is applied; A attaches to nothing.
+        No second complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 3→D and
+        4→B, the learner still faces {1,2}×{A,C,E} — A remains
+        surface-plausible for both remaining prompts, so the pairing is not
+        a forced 2-cycle; the learner must project the jitter /
+        cap-vs-recovery-time distinction to split C from E and separately
+        reject A.
+      </annotation>
+    </example>
+
+    <example id="6" axis="time" n="4" d="1" pool="A-E" correct-key="1-E,2-B,3-A,4-D">
+      <concept>Read-after-write visibility under asynchronous replication and a fixed-TTL cache, in the same system</concept>
+      <domain>distributed systems / caching</domain>
+
+      <stem>
+        Match each write-then-read case to what the read actually returns,
+        given how much time has elapsed at each stage. Not every outcome is
+        used.
+      </stem>
+
+      <prompts>
+        <item label="1">
+          A client writes a value, then immediately (within 10ms) reads it
+          back through a request routed to a replica, in a system whose
+          replication typically completes within 250ms.
+        </item>
+        <item label="2">
+          A client writes a value, waits 2 seconds, then reads it back
+          through a request routed to the same replica.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="4">
+          A different client had already read and cached this key 5 seconds
+          before the write occurred; that client reads the key again,
+          through the cache, 3 seconds after the write. The cache's entries
+          expire 60 seconds after being cached.
+        </item>
+        <item label="4" role="near-duplicate" pair-with="3">
+          A different client had already read and cached this key 90
+          seconds before the write occurred; that client reads the key
+          again, through the cache, 3 seconds after the write. The cache's
+          entries expire 60 seconds after being cached.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for near-duplicate" pair-with="3">
+          The cached entry was already within its 60-second expiry window
+          when the write occurred and remains within that window at the
+          time of this read, so the cache keeps serving the value it
+          already held rather than the newly written one.
+        </item>
+        <item label="B" role="correct-for" pair-with="2">
+          Enough time has elapsed since the write that replication has
+          already completed well before the read arrives, so the replica
+          returns the newly written value.
+        </item>
+        <item label="C" role="orthodox-but-wrong">
+          Because the cache entries expire 60 seconds after being cached,
+          any read occurring within 60 seconds of the write returns the
+          value that was cached before the write.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="4">
+          The cached entry had already exceeded its 60-second expiry window
+          by the time of this read, so the cache treats it as expired and
+          re-fetches — and by that point the write has long since
+          replicated, so the re-fetch returns the newly written value.
+        </item>
+        <item label="E" role="correct-for" pair-with="1">
+          The read reaches the replica before replication has had time to
+          complete, so the replica still holds the value that was in place
+          immediately before the write.
+        </item>
+      </responses>
+
+      <correct-key>1→E, 2→B, 3→A, 4→D (C unused)</correct-key>
+
+      <annotation>
+        Cross-viability: E (read arrives before replication completes) is
+        surface-viable for 1 (direct) and 2 (a shallow read might not weigh
+        2 seconds against the 250ms typical lag and assume replication
+        could still be incomplete). B (replication completed) is
+        surface-viable for 2 (direct) and 1 (a shallow read might treat
+        "within 10ms" as close enough to instant that replication is
+        assumed complete). A and D (cache-TTL mechanics) are
+        surface-viable for each other's prompt as described below, and
+        softly for 1/2 since all four prompts share one write-then-read
+        frame and a reader may not immediately separate the replica-path
+        mechanism from the cache-path mechanism. C (the TTL misconception)
+        is surface-viable for 3 and 4 directly (both explicitly involve the
+        60-second TTL) and softly for 1/2 under the general "reads shortly
+        after a write risk staleness" framing.
+
+        Near-duplicate confusion cell: prompts 3 and 4 (twin: both are
+        cache reads of a key that was already cached before the write, read
+        again 3 seconds after the write) crossed with responses A and D
+        (twin: both describe the cache's TTL state at the moment of the
+        read). The differentiating projection is arithmetic, not just
+        conceptual: prompt 3's entry was cached 5 seconds before the write
+        and read 3 seconds after — 8 seconds of total cache age, well under
+        the 60-second window, so it has NOT expired → A. Prompt 4's entry
+        was cached 90 seconds before the write and read 3 seconds after —
+        93 seconds of total cache age, past the 60-second window, so it HAS
+        expired on its own schedule, independent of the write → D. "A cache
+        read shortly after a write, key already cached" is the surface
+        feature shared by both twins; whether the entry's OWN age (not the
+        write's age) has crossed 60 seconds is the projected
+        differentiator.
+
+        Orthodox-but-wrong (C): "any read within 60 seconds of the write
+        sees the pre-write cached value" sounds like a direct, textbook
+        application of the TTL figure — and for prompt 3 it happens to land
+        on the same verdict as A, which is precisely what makes it
+        dangerous. It uses the wrong reference clock: it measures elapsed
+        time from the WRITE, when what actually governs cache expiry is
+        elapsed time from when the entry was CACHED. That distinction is
+        invisible at prompt 3 (where both clocks would suggest "still
+        stale") and is exposed at prompt 4: both reads in 3 and 4 occur
+        only 3 seconds after their respective writes, so C's write-relative
+        rule would predict "stale" for prompt 4 too — but prompt 4's entry
+        expired on its own 93-second-old schedule regardless of when the
+        write happened, and the correct answer there is the newly written
+        value. C fails to match any prompt as a general mechanism, even
+        though it coincides with the correct verdict once.
+
+        Unique bijection: prompt 1 (read within 10ms, well inside the
+        typical 250ms replication lag) resolves only to E; prompt 2
+        (2-second wait, well past typical replication lag) resolves only
+        to B; prompts 3 and 4 resolve to A and D respectively only once the
+        cache-age arithmetic is projected; C attaches to nothing. No second
+        complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 1→E and
+        2→B, the learner still faces {3,4}×{A,C,D} — C remains
+        surface-plausible for both remaining prompts (it directly invokes
+        the same 60-second figure present in both), so the pairing is not
+        a forced 2-cycle; the learner must compute both cache-age figures
+        to split A from D and separately reject C.
+      </annotation>
+    </example>
+
+    <example id="7" axis="risk" n="4" d="1" pool="A-E" correct-key="1-D,2-B,3-C,4-A">
+      <concept>Schema-migration constraints and the failure surface each migration approach actually opens</concept>
+      <domain>databases / operations</domain>
+
+      <stem>
+        Match each migration scenario and its constraint to the failure
+        surface it actually opens. Not every failure surface is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="2">
+          Adding a NOT NULL column with a default value to a
+          200-million-row table; the constraint is that no table-level lock
+          may be held longer than a few hundred milliseconds at any point,
+          though the overall migration may take several minutes.
+        </item>
+        <item label="2" role="near-duplicate" pair-with="1">
+          Renaming a column that many services reference directly by name
+          in their queries, where a shared connection pool routes queries
+          to any of those services without coordination; the constraint is
+          that no moment may exist where some services resolve the old
+          name while others resolve the new name.
+        </item>
+        <item label="3">
+          Deleting a large batch of rows that are no longer needed, to
+          reclaim storage; the constraint is that if the deletion needs to
+          be reversed after it starts, full recovery of the deleted rows
+          needs to remain possible for at least 24 hours afterward.
+        </item>
+        <item label="4">
+          Changing a column's storage encoding to a more compact format
+          under a fixed maintenance window; the constraint is that once the
+          window closes and traffic resumes, whatever state the migration
+          is in at that point is treated as final, with no further
+          opportunity to revisit it.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="4">
+          Performing the encoding change as an in-place rewrite that is
+          only partially complete when the maintenance window closes leaves
+          the column in a mixed-encoding state with no further window to
+          finish or revert it.
+        </item>
+        <item label="B" role="correct-for near-duplicate" pair-with="2">
+          Performing the rename as a single atomic DDL statement still
+          leaves a window, however brief, where already-open connections
+          continue resolving the old name while new connections resolve the
+          new name, because the connection pool does not coordinate a
+          simultaneous cutover across existing connections.
+        </item>
+        <item label="C" role="correct-for" pair-with="3">
+          Performing the deletion by removing rows directly, without
+          retaining a recoverable copy, makes the data physically gone once
+          the deletion commits, so there is nothing left to reverse from
+          after that point, regardless of how much time has passed.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="1">
+          Performing the migration as a single ALTER that rewrites the
+          whole table acquires a lock for the full rewrite duration, which
+          on a 200-million-row table can hold the table lock far longer
+          than a few hundred milliseconds, blocking all writes for the
+          duration.
+        </item>
+        <item label="E" role="orthodox-but-wrong">
+          Running the migration inside a single transaction guarantees that
+          either all of its changes take effect or none of them do, giving
+          a clean all-or-nothing outcome.
+        </item>
+      </responses>
+
+      <correct-key>1→D, 2→B, 3→C, 4→A (E unused)</correct-key>
+
+      <annotation>
+        Cross-viability: D (long lock hold from full rewrite) is
+        surface-viable for 1 (direct) and softly 4 (a large in-place
+        rewrite framing suggests lock/blocking concerns too). B
+        (connection-pool cutover skew) is surface-viable for 2 (direct) and
+        softly 1 (both read as "there's a window where the system is in an
+        inconsistent in-between state" before the specific mechanism —
+        exclusive lock vs. connection-level skew — is checked). C (physical
+        irreversibility) is surface-viable for 3 (direct) and softly 4
+        (both are "no going back once it happens" scenarios). A (stuck
+        mid-rewrite at a deadline) is surface-viable for 4 (direct) and
+        softly 3 (both read as "the migration got interrupted in a bad
+        state"). E (transactional atomicity) is surface-viable across all
+        four — any constrained migration invites "wrap it in a transaction"
+        as the reflexive answer.
+
+        Near-duplicate confusion cell: prompts 1 and 2 (twin: both describe
+        a moment during migration where the system could be caught in an
+        inconsistent in-between state) crossed with responses D and B
+        (twin: both describe a duration-bound problem during the
+        migration). The differentiating projection: is the violated
+        constraint about an exclusive TABLE LOCK blocking all writes for
+        too long (1, a 200-million-row full rewrite, lock-duration
+        constraint → D), or about CONNECTION-POOL-level visibility skew
+        with no blocking involved at all (2, a metadata-level rename,
+        cross-connection-consistency constraint → B)? Both responses
+        describe "a window during migration where something goes wrong" on
+        first read; only checking which specific constraint each prompt
+        actually states — lock duration versus cross-connection name
+        visibility — resolves which failure surface applies to which. D
+        does not fit 2 (2 never mentions row count or lock duration; a
+        rename is not a full-table rewrite), and B does not fit 1 (1 never
+        mentions multiple services or a connection pool).
+
+        Orthodox-but-wrong (E): "wrap it in a transaction for an
+        all-or-nothing outcome" is standard, correct advice for atomicity
+        in general — but it doesn't address any of these four specific
+        constraints. 1's constraint is about lock DURATION, which a
+        transaction wrapping the rewrite does not shorten. 2's constraint
+        is about connection-pool-level visibility, which is governed by
+        client-side routing, not the database transaction. 3's constraint
+        is about physical recoverability after commit, which transactional
+        atomicity does not provide once the transaction has already
+        committed. 4's constraint is about a hard external deadline cutting
+        off an in-progress change, which transactional atomicity does not
+        prevent from happening mid-flight.
+
+        Unique bijection: prompt 3 (irreversibility constraint, no
+        recoverable copy retained) resolves only to C; prompt 4 (deadline
+        constraint, partial rewrite stuck at window close) resolves only
+        to A; prompts 1 and 2 resolve to D and B respectively only once the
+        lock-duration-vs-connection-skew projection is applied; E attaches
+        to nothing. No second complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 3→C and
+        4→A, the learner still faces {1,2}×{B,D,E} — E remains
+        surface-plausible for both remaining prompts, so the pairing is not
+        a forced 2-cycle; the learner must project which specific
+        constraint each prompt states to split D from B and separately
+        reject E.
+      </annotation>
+    </example>
+
+    <example id="8" axis="coupling" n="4" d="1" pool="A-E" correct-key="1-D,2-A,3-E,4-B">
+      <concept>Service-decomposition arrangements and the dependency each one actually leaves in place</concept>
+      <domain>distributed systems / service architecture</domain>
+
+      <stem>
+        Match each service arrangement to the dependency consequence it
+        actually leaves in place. Not every consequence is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="3">
+          Two services are split from one codebase, each with its own
+          database, and both read from and write to a single shared
+          message-queue topic, with no defined ownership boundary over the
+          message schema on either side.
+        </item>
+        <item label="2">
+          Two services are split with separate databases and no shared
+          queue, but Service A calls Service B synchronously in the request
+          path for every user-facing request, and Service B has no
+          independent way to serve those requests if Service A's
+          request-shaping logic changes.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="1">
+          Two services are split with separate databases and asynchronous
+          eventing between them — no synchronous calls in the request path
+          — but the event payload schema is defined by copying Service A's
+          internal database row structure directly, field for field.
+        </item>
+        <item label="4">
+          Two services are split with separate databases and their own
+          defined API contracts, but both are deployed from the same
+          CI/CD pipeline stage and cannot be deployed independently — a
+          change to either always redeploys both together.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="2">
+          Because Service A's specific request-shaping logic is what
+          Service B's request-path behavior implicitly depends on, a change
+          to how Service A forms its calls can break Service B's behavior
+          in production even though Service B's own code never changed.
+        </item>
+        <item label="B" role="correct-for" pair-with="4">
+          Because both services are redeployed together from the same
+          pipeline stage regardless of which one actually changed, a
+          failing or slow rollout on one service's change blocks or delays
+          the release of unrelated changes to the other service.
+        </item>
+        <item label="C" role="orthodox-but-wrong">
+          Splitting a monolith into two services with separate databases
+          removes the shared-database coupling that made independent
+          releases impossible, so the two services can now be deployed and
+          scaled independently.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="1">
+          Because both services read and write the same queue topic without
+          a schema-ownership boundary, a change either service makes to the
+          message shape can silently break the other's consumer, even
+          though the services otherwise share no code or database.
+        </item>
+        <item label="E" role="correct-for near-duplicate" pair-with="3">
+          Because the event schema is a direct copy of Service A's internal
+          row structure, any change to Service A's internal storage
+          representation — even one that doesn't change Service A's own
+          external behavior — forces a corresponding change to the event
+          schema and therefore to Service B's consumer.
+        </item>
+      </responses>
+
+      <correct-key>1→D, 2→A, 3→E, 4→B (C unused)</correct-key>
+
+      <annotation>
+        Cross-viability: D (shared-topic, no ownership boundary) is
+        surface-viable for 1 (direct) and softly 3 (both involve
+        message/event-based communication, inviting conflation of "shared
+        queue" with "shared event schema"). E (event schema copies internal
+        structure) is surface-viable for 3 (direct) and softly 1 (both are
+        about message/event PAYLOAD problems before the specific mechanism
+        — topic governance vs. schema provenance — is checked). A (implicit
+        dependency on caller's shaping logic) is surface-viable for 2
+        (direct) and softly 4 (both are "a change to one affects release or
+        behavior of the other" scenarios). B (coupled deploys) is
+        surface-viable for 4 (direct) and softly 2 (both are
+        deployment/release-level blocking scenarios). C (separate-databases
+        claim) is surface-viable across all four — every prompt explicitly
+        states separate databases, inviting the natural but wrong inference
+        that database separation alone means decoupling.
+
+        Near-duplicate confusion cell: prompts 1 and 3 (twin: both are
+        asynchronous, message/event-based arrangements) crossed with
+        responses D and E (twin: both describe an entanglement that
+        survives despite the async, no-shared-database arrangement). The
+        differentiating projection: is the coupling in the TOPIC ITSELF —
+        both services able to read and write the same topic with no
+        governance boundary on message shape (1 → D) — or in the EVENT
+        SCHEMA'S PROVENANCE — a schema that is a direct copy of one
+        service's internal storage structure, leaking internal
+        representation into the public contract even with clean
+        one-directional eventing (3 → E)? "Message/event-based coupling" is
+        the surface feature shared by both twins; which specific structural
+        detail — shared-topic governance or schema-copies-internal-storage
+        — produces the consequence is the projected differentiator. D does
+        not fit 3 (3 has no shared-topic governance problem stated — it is
+        one-directional eventing), and E does not fit 1 (1 never mentions
+        the event schema being copied from internal storage — its problem
+        is topic-level, not schema-provenance).
+
+        Orthodox-but-wrong (C): "separate databases remove the coupling
+        that blocked independent deployment" is the standard justification
+        for extract-service refactors, and it is true as far as it goes —
+        but none of these four arrangements retains coupling THROUGH the
+        database. Each retains some other structural coupling instead
+        (shared-topic governance, a synchronous call dependency, copied
+        event schema, or a shared pipeline stage), and database separation
+        does nothing to address any of those. C never names the actual
+        mechanism at work in any of the four cases.
+
+        Unique bijection: prompt 2 (synchronous call, implicit dependency
+        on caller logic) resolves only to A; prompt 4 (shared pipeline
+        stage, coupled deploys) resolves only to B; prompts 1 and 3 resolve
+        to D and E respectively only once the
+        topic-governance-vs-schema-provenance projection is applied; C
+        attaches to nothing. No second complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 2→A and
+        4→B, the learner still faces {1,3}×{C,D,E} — C remains
+        surface-plausible for both remaining prompts (both explicitly state
+        separate databases), so the pairing is not a forced 2-cycle; the
+        learner must project which specific structural detail is retained
+        to split D from E and separately reject C.
+      </annotation>
+    </example>
+
+    <example id="9" axis="observability" n="4" d="1" pool="A-E" correct-key="1-B,2-C,3-A,4-E">
+      <concept>Monitoring-signal selection for different failure modes and their exposure windows</concept>
+      <domain>systems reliability / observability</domain>
+
+      <stem>
+        Match each failure scenario to the signal that actually detects it
+        in time. Not every signal is used.
+      </stem>
+
+      <prompts>
+        <item label="1">
+          A service's per-request memory allocations are occasionally not
+          freed; the leaked memory only becomes large enough to matter
+          after many hours of sustained traffic, so by the time users
+          notice slow responses, the underlying condition has already
+          existed for hours.
+        </item>
+        <item label="2" role="near-duplicate" pair-with="4">
+          A downstream dependency occasionally takes far longer than usual
+          to respond; when it does, requests queue up waiting on it, and if
+          unnoticed for even a couple of minutes, the queue backs up faster
+          than it can drain and cascades into total unavailability.
+        </item>
+        <item label="3">
+          A background job silently writes incorrect values into a subset
+          of rows due to a rare edge case in its transformation logic; the
+          incorrect rows are not read by any normal request path for days
+          or weeks after being written.
+        </item>
+        <item label="4" role="near-duplicate" pair-with="2">
+          A fixed-size worker thread pool becomes fully occupied by a burst
+          of slow requests; the pool recovers on its own within seconds
+          once the burst passes, but during that window new requests see
+          elevated latency.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="3">
+          A periodic reconciliation job that recomputes a checksum or
+          sample of the transformation's output against an independent
+          source, run on a schedule of hours to a day, is what actually
+          surfaces the incorrect values — nothing in the normal request
+          path touches these rows soon enough for a live signal to catch
+          it.
+        </item>
+        <item label="B" role="correct-for" pair-with="1">
+          A slow-moving trend line of total process memory sampled over
+          hours to days, viewed against baseline, surfaces a leak long
+          before it exhausts available memory, giving time to act before
+          user-facing symptoms appear.
+        </item>
+        <item label="C" role="correct-for near-duplicate" pair-with="2">
+          A per-dependency latency and in-flight-request-count metric,
+          alerted on a threshold crossed within seconds to low minutes,
+          surfaces the backup while there is still time to shed load or
+          fail over before the queue cascades.
+        </item>
+        <item label="D" role="orthodox-but-wrong">
+          Aggregate request-level error-rate and latency-percentile
+          dashboards, alerted on a several-minute rolling window, are the
+          standard first signal for detecting service degradation.
+        </item>
+        <item label="E" role="correct-for near-duplicate" pair-with="4">
+          A thread-pool utilization metric sampled and alerted at a fine
+          enough interval — seconds, not minutes — is what catches a burst
+          that resolves within seconds; anything coarser resolves the alert
+          before a person ever sees it.
+        </item>
+      </responses>
+
+      <correct-key>1→B, 2→C, 3→A, 4→E (D unused)</correct-key>
+
+      <annotation>
+        Cross-viability: C (per-dependency latency/in-flight metric) is
+        surface-viable for 2 (direct) and softly 4 (both are
+        latency/queueing-flavored signals before the specific resource —
+        dependency vs. thread pool — is checked). E (thread-pool
+        utilization, fine-grained) is surface-viable for 4 (direct) and
+        softly 2 (same reason, reversed). B (slow memory trend) is
+        surface-viable for 1 (direct) and softly 3 (both are "takes a long
+        time to become visible" scenarios, inviting conflation of
+        long-timescale detection needs generally). A (periodic
+        reconciliation) is surface-viable for 3 (direct) and softly 1 (both
+        need a signal outside the live request path rather than one
+        derived from traffic itself). D (aggregate dashboard) is
+        surface-viable across all four — a standard-looking,
+        broadly-applicable signal that reads as plausible for any
+        "something is wrong" scenario.
+
+        Near-duplicate confusion cell: prompts 2 and 4 (twin: both are
+        queueing/backpressure scenarios needing fast alerting) crossed with
+        responses C and E (twin: both are fine-grained, fast-alerting
+        signals). The differentiating projection: which resource is
+        actually saturating, and on what timescale? Prompt 2's failure is a
+        downstream DEPENDENCY becoming slow, with a cascade that develops
+        over seconds to low minutes, calling for a per-dependency metric at
+        that granularity (→ C). Prompt 4's failure is the WORKER THREAD
+        POOL itself filling up and self-resolving within seconds, calling
+        for thread-pool utilization sampled finely enough to catch an event
+        that fast (→ E). "Queueing gone wrong, alert fast" is the surface
+        feature shared by both twins; which specific resource is saturating
+        — the dependency or the pool — is the projected differentiator. C
+        does not reliably fit 4 (a burst of slow requests need not involve
+        a slow downstream dependency at all — the pool can saturate on its
+        own), and E does not reliably fit 2 (the thread pool need not be
+        saturated for a single dependency to be running slow if there is
+        spare capacity elsewhere).
+
+        Orthodox-but-wrong (D): an aggregate, several-minute-window
+        error-rate and latency dashboard is a real, standard, widely-used
+        signal — which is exactly why it pulls the eye toward all four
+        scenarios. It fails every one of them on timing or blindness
+        grounds: 1's leak takes hours to matter, too slow-building to
+        separate from noise on a several-minute window; 2 needs sub-minute,
+        per-dependency granularity that an aggregate rollup dilutes past
+        usefulness before the cascade completes; 3 never produces an
+        elevated error rate or latency at all, since the requests succeed
+        and only the data is wrong; 4's burst resolves within seconds,
+        faster than a several-minute window would even register.
+
+        Unique bijection: prompt 1 (hours-long buildup, no request-path
+        symptom yet) resolves only to B; prompt 3 (silent data corruption,
+        no request-path symptom ever) resolves only to A; prompts 2 and 4
+        resolve to C and E respectively only once the
+        which-resource-is-saturating projection is applied; D attaches to
+        nothing. No second complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 1→B and
+        3→A, the learner still faces {2,4}×{C,D,E} — D remains
+        surface-plausible for both remaining prompts, so the pairing is not
+        a forced 2-cycle; the learner must project which resource is
+        actually saturating to split C from E and separately reject D.
+      </annotation>
+    </example>
   </worked-examples>
+
+  <!-- ============================================================
+       AXIS-FIT FALLBACK EXERCISES
+       Compact demonstrations of construction-sequence step 2 / REQ-MAT-E-003
+       firing on the three axes most prone to surface collapse (R-2):
+       recognition, transfer, coupling. These are not full trials — they
+       record the axis-fit judgment, the failure reason, and the redraw
+       landing. Full successful trials for these axes are examples 4
+       (recognition), 3 (transfer), and 8 (coupling) above.
+  ============================================================ -->
+
+  <axis-fit-fallback-exercises>
+    <note>
+      Per construction-sequence step 2, judging axis-fit happens BEFORE
+      case-set construction — it is a cheap test of whether the assigned
+      axis's role-pairing can be made load-bearing for the concept at all,
+      not a post-hoc discovery after a trial fails validation. These
+      exercises document that judgment failing on a concept genuinely
+      mismatched to the axis, the resulting signal to the orchestration
+      layer, and the redraw landing on an axis that fits. This is a
+      distinct failure surface from the internal-validation checklist
+      (which catches a constructed trial that collapses to surface
+      association); axis-fit is caught earlier, before any prompt or
+      response is written.
+    </note>
+
+    <exercise id="1" axis-rejected="recognition" lands-on="application">
+      <concept>Retry-with-backoff behavior under different parameter and dependency conditions (the concept behind example 5)</concept>
+
+      <axis-fit-judgment>
+        Recognition's role-pairing is presentation → classification: each
+        prompt must be a case whose TRUE IDENTITY is at risk of being
+        misrecognized from a familiar surface label. This concept affords
+        no such structure. There is exactly one mechanism in play — retry
+        with backoff — instantiated under different parameters; every
+        prompt is already unambiguously "a retry-with-backoff scenario,"
+        with nothing about its true category in question. Forcing a
+        classification framing collapses to one of two failures: either
+        trivial 1:1 labeling (every prompt says "retry," nothing left to
+        recognize), or classification categories invented that the concept
+        itself does not have. No dense, projection-resolvable
+        presentation→classification grid is constructible.
+      </axis-fit-judgment>
+
+      <signal>
+        Axis-fit failure reported to the orchestration layer per
+        REQ-MAT-E-003. The orchestrator invokes `select_mcq_axis.py
+        --exclude recognition[, plus any axes already used this session]`.
+      </signal>
+
+      <redraw-landing>
+        Axis reassigned to `application`. Application's role-pairing —
+        situation-with-parameters → produced-outcome — fits directly: every
+        prompt already IS a situation with specific parameters, and the
+        axis question ("what does applying the concept here actually
+        produce?") is exactly what the concept affords. Construction
+        proceeds under application; see example 5 for the resulting trial.
+      </redraw-landing>
+    </exercise>
+
+    <exercise id="2" axis-rejected="transfer" lands-on="boundary-condition">
+      <concept>Browser cookie SameSite attribute behavior (Strict / Lax / None) across cross-site request contexts</concept>
+
+      <axis-fit-judgment>
+        Transfer's construction rule (REQ-MAT-F-020) requires phrasing each
+        response in a domain OTHER than its correct prompt's, so keyword
+        matching is defeated and only mechanism resolves the grid — which
+        requires the concept's mechanism to have a genuine, non-strained
+        instantiation in at least one other domain (as Little's Law does
+        across hospital/software/coffee-shop/factory in example 3).
+        SameSite cookie behavior is a browser-specific request-context
+        mechanism with no such cross-domain analogue: forcing its responses
+        into, say, factory or hospital vocabulary produces analogies so
+        strained that engaging with them requires first decoding the
+        analogy rather than the concept — directly violating
+        domain-anchoring's "a strained domain analogy is worse than an
+        abstract case set." No non-strained inversion target exists.
+      </axis-fit-judgment>
+
+      <signal>
+        Axis-fit failure reported to the orchestration layer per
+        REQ-MAT-E-003. The orchestrator invokes `select_mcq_axis.py
+        --exclude transfer[, plus any axes already used this session]`.
+      </signal>
+
+      <redraw-landing>
+        Axis reassigned to `boundary-condition`. This fits well: the
+        Strict/Lax/None distinctions are threshold behavior — which
+        cross-site request context crosses which enforcement boundary, and
+        what cookie-inclusion behavior results. Construction proceeds under
+        boundary-condition with a condition→behavior role-pairing (specific
+        cross-site request contexts → the resulting inclusion behavior).
+      </redraw-landing>
+    </exercise>
+
+    <exercise id="3" axis-rejected="coupling" lands-on="boundary-condition">
+      <concept>Hash table resizing (load factor and rehashing)</concept>
+
+      <axis-fit-judgment>
+        Coupling's role-pairing is structural-arrangement →
+        entanglement-consequence: it requires an arrangement of MULTIPLE
+        components with a dependency one leaves on another. Hash table
+        resizing is a single data structure's internal behavior — there is
+        no second component for anything to be entangled with, and no
+        arrangement to vary across prompts. No dense grid under coupling's
+        semantic is constructible for a concept with nothing to couple.
+      </axis-fit-judgment>
+
+      <signal>
+        Axis-fit failure reported to the orchestration layer per
+        REQ-MAT-E-003. The orchestrator invokes `select_mcq_axis.py
+        --exclude coupling[, plus any axes already used this session]`.
+      </signal>
+
+      <redraw-landing>
+        Axis reassigned to `boundary-condition`. This fits well:
+        load-factor threshold crossings triggering rehashing are a clean
+        condition→behavior structure (different load-factor and
+        access-pattern conditions producing different resize-timing and
+        amortized-cost behaviors). Construction proceeds under
+        boundary-condition. Coupling itself is fully demonstrated fitting
+        its own semantic in example 8, on a concept — service decomposition
+        — that genuinely has a multi-component arrangement to test.
+      </redraw-landing>
+    </exercise>
+  </axis-fit-fallback-exercises>
 
   <!-- ============================================================
        EDGE CASES AND FAILURE MODES
