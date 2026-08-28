@@ -1,8 +1,8 @@
 # Plan — Matching Question Type (mcq-probe)
 
-**Status:** Implemented (commit `6715bc8`: `MATCHING_GENERATION_PROMPT.md`, `SKILL.md`, `select_question_type.py`, this plan). OQ 1–7 are resolved per §5 and already shipped as constructed — the recommendations below were not left pending; the generation prompt is built on them directly. The mandatory per-axis dry-run gate (§16 step 5) is now complete — see the Dry-Run Gate Results table at the end of §16. Ready for merge review.
+**Status:** Implemented; under merge review. Commit history: `6715bc8` shipped the implementation (`MATCHING_GENERATION_PROMPT.md`, `SKILL.md`, `select_question_type.py`, this plan) and **explicitly deferred** the per-axis dry-run gate ("run it before merge"); `f5b7d1a` completed the 9-axis gate — adding worked examples 4–9 and the axis-fit fallback exercises — and self-certified it. An Opus review of `f5b7d1a` (**currently uncommitted**) then corrected two construction defects and diversified the worked-example n/D sizes; see the Dry-Run Gate Results table and the Review-correction note at the end of §16. OQ 1–7 are resolved per §5 and shipped as constructed — the generation prompt is built on them directly. **Outstanding before merge:** a second independent projection of the n=6/D=3 observability example (largest grid, highest hand-verification risk), and n=7 remains gate-untested (constructed identically to n=6).
 
-*This status line originally read "Design — awaiting readback confirmation" when this plan was authored; it is corrected here for accuracy, since implementation landed in the same commit that introduced the plan.*
+*This status line originally read "Design — awaiting readback confirmation" when this plan was authored; it was corrected once implementation landed in the same commit that introduced the plan (`6715bc8`), and again to record the `f5b7d1a` gate and the review corrections.*
 **Date:** 2026-08-27
 **Branch:** `claude/mcq-probe-matching-questions-9d0f7a`
 **Target skill:** `mcq-probe`
@@ -407,24 +407,1006 @@ Built to expose the two matching-specific ceilings the §8 examples (all n=4) do
 ## 16. Implementation order
 
 1. ~~Confirm the readback (§0) and OQ 1–7.~~ **Done.** Resolved per §5; the surplus-response interpretation (OQ 1) is load-bearing throughout the shipped generation prompt.
-2. ~~Author `MATCHING_GENERATION_PROMPT.md`~~ **Done** — full XML: purpose, 9 axes reframed for matching (prompt-role→response-role semantic + wrong-attachment failure mode per axis; the `transfer` reframing carries the domain-vocabulary-inversion rule, REQ-MAT-F-020), question/prompt/response requirements, the grid-design law (§4) and required constructs, construction sequence + validation checklist (§6), feedback protocols (§7), edge cases (§13), and — as of the dry-run gate below — 9 worked examples (one per axis) plus 3 axis-fit fallback exercises.
+2. ~~Author `MATCHING_GENERATION_PROMPT.md`~~ **Done** — full XML: purpose, 9 axes reframed for matching (prompt-role→response-role semantic + wrong-attachment failure mode per axis; the `transfer` reframing carries the domain-vocabulary-inversion rule, REQ-MAT-F-020), question/prompt/response requirements, the grid-design law (§4) and required constructs, construction sequence + validation checklist (§6), feedback protocols (§7), edge cases (§13). The prompt ships **three** representative worked examples spanning the size range — transfer (n=4/D=1), application (n=3/D=2), observability (n=6/D=3) — matching the lean worked-examples convention of MCQ/MSQ/ORDERING. The full 9-axis gate evidence and the axis-fit fallback exercises are recorded in **Appendix A** below, not embedded in the runtime prompt (see the prompt-alignment note under step 5).
 3. ~~Modify `select_question_type.py`~~ **Done** — `"matching"` is in `TYPES`.
 4. ~~Modify `SKILL.md`~~ **Done** — Intake Phase (matchable determination → combined `--exclude`), File Path Constants, Active Constraints, prompt-load, Trial-loop present/wait/evaluate + axis re-draw, Response Protocol (Matching correct/incorrect), internal record schema, Report Format (Type column + Gap Inventory), Error Handling (E-001/E-002/E-003) are all wired.
-5. **Mandatory gate — Done.** All 9 axes dry-run in `MATCHING_GENERATION_PROMPT.md`'s `<worked-examples>` (examples 1–9), each confirmed dense/cross-viable/uniquely-resolvable against the internal-validation checklist (§6). The axis-fit fallback (construction-sequence step 2 / REQ-MAT-E-003) is exercised for all three hostile axes (recognition, transfer, coupling) in the new `<axis-fit-fallback-exercises>` section. Results below.
+5. **Mandatory gate — Done.** All 9 axes were dry-run against the internal-validation checklist (§6), each confirmed dense/cross-viable/uniquely-resolvable; the axis-fit fallback (construction-sequence step 2 / REQ-MAT-E-003) is exercised for all three hostile axes (recognition, transfer, coupling). Full worked evidence is in **Appendix A**. Results summarized below.
+
+   **Prompt-alignment note (Opus review).** As first built, all nine gate examples plus the fallback exercises were embedded in `MATCHING_GENERATION_PROMPT.md`'s `<worked-examples>`/`<axis-fit-fallback-exercises>`, making that prompt ~138 KB — roughly 3× its siblings (MCQ 43 KB, MSQ 44 KB, ORDERING 59 KB), all of which keep only 1–2 illustrative examples and no fallback-exercises section (they handle axis-fit in construction-sequence step 2 + the `unfit-axis` edge-case, which matching also does). The prompt is loaded into context on Trial 1 of every session, so this was a standing ~80 KB context tax and a structural divergence from the sibling prompts. Resolved by trimming the prompt to three representative exemplars (spanning the n/D range) and relocating the remaining six examples and the fallback exercises to Appendix A. The prompt is now 85 KB. The 9-axis gate result stands — the evidence moved, it was not discarded.
 6. Optional: reweight type distribution after observing pass rates; add the CLAUDE.md doctrine note.
 
 ### Dry-Run Gate Results (§16 step 5)
 
-| Axis | Concept (domain) | Near-duplicate cell | Orthodox-but-wrong | Fallback exercised | Verdict |
-|---|---|---|---|---|---|
-| failure-diagnosis | TCP throughput anomalies (networking) | prompts 2×4, responses B×D | E — capacity-bound first guess | — (example 1, pre-existing) | PASS |
-| boundary-condition | Tire thermal window (motorsport) | prompts 2×3, responses D×A | C — "driver overdriving" | — (example 2, pre-existing) | PASS |
-| transfer | Little's Law (multi-domain: hospital/software/coffee/factory) | two cells: {1,2}×{B,D}, {3,4}×{E,A} | C — throughput-from-time-cut misapplication | Yes — exercise 1, concept without a non-strained cross-domain analogue (SameSite cookies), redraws to boundary-condition | PASS |
-| recognition | Concurrency bug classification (software) | prompts 1×3 (deadlock/livelock), responses B×E | D — "split the lock" | Yes — exercise 1, concept with no true-identity ambiguity (retry-backoff params), redraws to application | PASS |
-| application | Retry-with-backoff outcomes (distributed systems) | prompts 1×2, responses C×E | A — jitter-benefit generalization | — | PASS |
-| time | Read-after-write visibility (replication + cache TTL) | prompts 3×4, responses A×D | C — write-relative TTL misconception (coincidentally correct once) | — | PASS |
-| risk | Schema-migration constraints (databases) | prompts 1×2, responses D×B | E — "wrap it in a transaction" | — | PASS |
-| coupling | Service-decomposition arrangements (architecture) | prompts 1×3, responses D×E | C — "separate databases ⇒ decoupled" | Yes — exercise 3, concept with no second component to entangle with (hash table resizing), redraws to boundary-condition | PASS |
-| observability | Monitoring-signal selection (SRE) | prompts 2×4, responses C×E | D — aggregate error-rate/latency dashboard | — | PASS |
+| Axis | Concept (domain) | n/D | Near-duplicate cell | Orthodox-but-wrong | Fallback exercised | Verdict |
+|---|---|---|---|---|---|---|
+| failure-diagnosis | TCP throughput anomalies (networking) | 4/1 | prompts 2×4, responses B×D | E — capacity-bound first guess | — (example 1, pre-existing) | PASS |
+| boundary-condition | Tire thermal window (motorsport) | 4/1 | prompts 2×3, responses D×A | C — "driver overdriving" | — (example 2, pre-existing) | PASS |
+| transfer | Little's Law (multi-domain: hospital/software/coffee/factory) | 4/1 | two cells: {1,2}×{B,D}, {3,4}×{E,A} | C — throughput-from-time-cut misapplication | Yes — exercise 1, concept without a non-strained cross-domain analogue (SameSite cookies), redraws to boundary-condition | PASS |
+| recognition | Concurrency bug classification (software) | 4/1 | prompts 1×3 (deadlock/livelock), responses B×E | D — "split the lock" | Yes — exercise 1, concept with no true-identity ambiguity (retry-backoff params), redraws to application | PASS |
+| application | Retry-with-backoff outcomes (distributed systems) | **3/2** | prompts 1×2, responses C×E | A — jitter-benefit generalization | — | PASS |
+| time | Read-after-write visibility (replication + cache TTL) | 4/1 | prompts 3×4, responses A×D | C — fresh-means-current misconception (verdict-wrong on both cache prompts) | — | PASS (corrected — see review note) |
+| risk | Schema-migration constraints (databases) | **5/2** | prompts 1×2, responses C×F | E — "wrap it in a transaction"; G — stale planner statistics | — | PASS |
+| coupling | Service-decomposition arrangements (architecture) | 4/1 | prompts 1×3, responses D×E | C — "separate databases ⇒ decoupled" | Yes — exercise 3, concept with no second component to entangle with (hash table resizing), redraws to boundary-condition | PASS |
+| observability | Monitoring-signal selection (SRE) | **6/3** | prompts 2×4, responses A×E | C — aggregate dashboard; F — tracing; H — error-log volume | — | PASS |
 
-**Overall verdict: PASS, 9/9.** Every axis produces a grid satisfying the full internal-validation checklist (§6): cross-viability in both directions, no-elimination-shortcut under D=1 (all nine examples use n=4, D=1 — the n=3/D≥2 floor from §5 is untested by this gate and remains a construction-time responsibility, not a gate finding), a unique bijection, ≥1 near-duplicate cell, and ≥1 orthodox-but-wrong distractor whose failure is argued explicitly rather than asserted. The three hostile axes named in this gate (R-2) each additionally demonstrate the axis-fit-rejection path firing on a genuinely mismatched concept and landing cleanly on a fitting axis, closing out R-1/R-2/R-4 as mitigated rather than merely designed-for. This clears the item explicitly deferred at merge in commit `6715bc8`.
+**Overall verdict: PASS, 9/9 (after review correction).** Every axis produces a grid satisfying the full internal-validation checklist (§6): cross-viability in both directions, no-elimination-shortcut, a unique bijection, ≥1 near-duplicate cell, and ≥1 orthodox-but-wrong distractor whose failure is argued explicitly rather than asserted. The examples now span the parameter ranges — n ∈ {3,4,5,6}, D ∈ {1,2,3} — rather than sitting entirely at n=4/D=1; the n=3/D≥2 floor from §5 is exercised directly by the application example (its annotation shows why D=1 would leave a forced 2-cycle at n=3), and the n=6/D=3 observability example exercises the ceiling. n=7 remains untested by the gate (constructed identically to n=6 with one more case) and is a construction-time responsibility. The three hostile axes named in this gate (R-2) each additionally demonstrate the axis-fit-rejection path firing on a genuinely mismatched concept and landing cleanly on a fitting axis, closing out R-1/R-2/R-4 as mitigated rather than merely designed-for. This clears the item explicitly deferred at merge in commit `6715bc8`.
+
+**Review correction (Opus review of commit `f5b7d1a`).** The self-certified 9/9 was, as first shipped, 8/9. Two defects were found on independent projection and fixed before merge:
+
+- **Example 6 (time axis) — ambiguous key (blocker, FM-3/FM-4, REQ-MAT-F-005).** The original orthodox-but-wrong distractor C used a write-relative-TTL rule ("any read within 60s of the write returns the pre-write value"). Because prompts 3 and 4 are both read 3 seconds after their writes, that rule returns the same verdict for both twins and coincided with prompt 3's true "old value" outcome — making `3→C` a genuinely defensible pairing and leaving a second complete bijection (`1→E, 2→B, 3→C, 4→D`, A unused). Fixed by replacing C with the **fresh-means-current** misconception (a within-TTL entry is "fresh → returns the new value"), which is verdict-wrong on *both* cache prompts (3 truly returns old, 4 truly returns new) and inapplicable to the cache-less replica prompts 1/2 — so C now matches no prompt and the bijection is unique.
+- **Example 4 (recognition) — near-free prompt (soft spot, grid-design-law part 4).** Prompt 2 (starvation) had only one surface-viable response (C). Reworded so its "stays runnable the whole time" framing also draws E (livelock) on the surface, restoring the "no free prompt" property; projection still fixes 2→C because the thread never retries in response to a peer.
+
+- **All-examples-at-n=4/D=1 — few-shot structural anchoring bias (R-1 adjacent).** As first shipped, all nine worked examples sat at n=4/D=1, which biases the generator's per-trial n/D selection toward that single point and, worse, points it at the forbidden D=1 corner on the rare n=3 deviation. Fixed by diversifying three examples to span the ranges — application → **n=3/D=2** (the safety-critical floor; its annotation demonstrates why D=1 would leave a forced 2-cycle), risk → **n=5/D=2**, observability → **n=6/D=3** (ceiling) — and adding an explicit anti-anchoring directive in both the worked-examples preamble and the `<count>` construction step instructing per-concept n/D selection over example-matching. Final spread: n ∈ {3,4,5,6}, D ∈ {1,2,3}.
+
+These fixes preserve the correct keys, the near-duplicate cells, and file XML well-formedness (verified: all nine examples' declared n/D/pool match their actual prompt/response counts and key length). Process note: the prior gate was run and self-certified by the same agent that authored the examples; example 6's annotation openly rationalized the coincidence ("coincides with the correct verdict once") rather than flagging it, and the exemplar monoculture was reinforced rather than caught. Treat future self-run gates as provisional until independently projected.
+
+
+---
+
+## Appendix A — Relocated gate evidence (9-axis dry-run)
+
+These are the six worked examples and the three axis-fit fallback exercises that were **removed from** `MATCHING_GENERATION_PROMPT.md` during the Opus prompt-alignment pass (§16 step 5, prompt-alignment note) and preserved here. Together with the three examples retained in the prompt (transfer, application, observability) they constitute the full per-axis dry-run gate. They are the authoritative construction evidence; they are **not** loaded at runtime.
+
+**Original gate numbering** (used by the `id` attributes below and by the "example N" cross-references inside the fallback exercises):
+
+| # | Axis | Concept | n/D | Location now |
+|---|---|---|---|---|
+| 1 | failure-diagnosis | TCP throughput anomalies | 4/1 | Appendix A |
+| 2 | boundary-condition | Tire thermal window | 4/1 | Appendix A |
+| 3 | transfer | Little's Law | 4/1 | **prompt (example 1)** |
+| 4 | recognition | Concurrency bug classification | 4/1 | Appendix A |
+| 5 | application | Retry-with-backoff | 3/2 | **prompt (example 2)** |
+| 6 | time | Read-after-write visibility | 4/1 | Appendix A |
+| 7 | risk | Schema-migration constraints | 5/2 | Appendix A |
+| 8 | coupling | Service decomposition | 4/1 | Appendix A |
+| 9 | observability | Monitoring-signal selection | 6/3 | **prompt (example 3)** |
+
+### A.1 — Removed worked examples (gate ids 1, 2, 4, 6, 7, 8)
+
+```xml
+    <example id="1" axis="failure-diagnosis" n="4" d="1" pool="A-E" correct-key="1-A,2-B,3-C,4-D">
+      <concept>TCP throughput anomalies (congestion control × flow control)</concept>
+      <domain>abstract</domain>
+
+      <stem>
+        Match each observed transfer symptom to its root cause. Not every
+        cause is used.
+      </stem>
+
+      <prompts>
+        <item label="1">
+          A bulk transfer over a long-RTT satellite link plateaus near
+          2 Mbps though the path supports 50 Mbps; a capture shows the
+          sender repeatedly stops sending and waits, then resumes — with no
+          retransmissions.
+        </item>
+        <item label="2" role="near-duplicate" pair-with="4">
+          A transfer over a clean gigabit LAN peaks, then repeatedly halves
+          its rate in a regular sawtooth, with a retransmission at each
+          drop.
+        </item>
+        <item label="3">
+          A transfer through a device with a very large buffer sustains
+          high throughput, but end-to-end latency climbs to several
+          seconds and stays there; almost no packets are lost.
+        </item>
+        <item label="4" role="near-duplicate" pair-with="2">
+          A transfer over WiFi runs well below capacity with frequent
+          fast-retransmits, though the link's actual loss rate is low and
+          RTT is stable.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="1">
+          The receive window is smaller than the bandwidth-delay product,
+          so the sender exhausts the advertised window and stalls until
+          ACKs return — a flow-control limit, not congestion.
+        </item>
+        <item label="B" role="correct-for near-duplicate" pair-with="2">
+          Congestion control operating normally: the sender probes upward
+          until a real drop signals congestion, then multiplicatively
+          decreases — the sawtooth is the algorithm working as designed.
+        </item>
+        <item label="C" role="correct-for" pair-with="3">
+          An oversized intermediate buffer absorbs overshoot instead of
+          dropping, so the loss signal arrives only once the queue is
+          saturated; the sender never sees a timely drop and latency
+          inflates.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="4">
+          Path reordering produces duplicate ACKs that trip fast-retransmit
+          though little is truly lost, so the sender needlessly cuts its
+          window.
+        </item>
+        <item label="E" role="orthodox-but-wrong">
+          The path's available bandwidth is simply lower than the transfer
+          demands; throughput is capacity-bound.
+        </item>
+      </responses>
+
+      <correct-key>1→A, 2→B, 3→C, 4→D (E unused)</correct-key>
+
+      <annotation>
+        Labeling note: for readability this example's key is shown running
+        1→A … 4→D (the identity diagonal). A shipped trial MUST NOT do this —
+        the response labels are shuffled so the key is never the identity
+        diagonal (see label-and-shuffle and the internal-validation
+        checklist; examples 2 and 3 show the shuffled form). The diagonal
+        here is a presentation choice for this illustration only.
+
+        Cross-viability: A (window limit → stall) is surface-viable for 1,
+        4, and softly for 2 ("why not faster?"); it resolves under
+        projection to 1 only — the stall-with-no-loss signature. B (normal
+        congestion sawtooth) is surface-viable for 2, 4 (both show
+        retransmits), and softly for 1; it resolves to 2 only, because the
+        rate-halving coincides with real drops on a clean path. C
+        (bufferbloat) is surface-viable for 3, softly for 1
+        (latency/stall confusion) and 2; it resolves to 3 only — sustained
+        throughput, inflated latency, near-zero loss. D (reordering →
+        spurious retransmit) is surface-viable for 4 and 2 (both
+        retransmit); it resolves to 4 only — fast-retransmits with low
+        actual loss and stable RTT. E (capacity-bound, the orthodox lure)
+        is surface-viable for 1, 3, and 4 — any slow transfer invites it —
+        and resolves to nothing.
+
+        Near-duplicate confusion cell: prompts 2 and 4 (twin: both
+        under-perform with retransmits present) crossed with responses B
+        and D (twin: both describe the retransmit machinery). All four
+        cells read as viable on first pass. The one differentiating
+        projection: are the retransmits responding to real drops (prompt
+        2, clean LAN, rate halves at each drop → B) or to
+        reordering-induced duplicate ACKs with little true loss (prompt 4
+        → D)? "There are retransmits" is the surface feature shared by
+        both twins; WHAT the retransmits are responding to is the
+        projected differentiator. Cross-wiring 2↔4 / B↔D is the canonical
+        transposition error for this trial.
+
+        Orthodox-but-wrong (E): "insufficient bandwidth / capacity-bound"
+        is the standard first diagnosis reached for on any slow transfer —
+        professionally common, defensible in isolation. A learner
+        deferring to convention attaches prompt 1 or prompt 4 to E. It
+        matches nothing: prompt 1 stalls with no loss on a 50 Mbps path (a
+        window limit, not a capacity limit); prompt 3 sustains high
+        throughput (not capacity-bound at all); prompt 4 carries the
+        reordering signature, not a capacity signature. Attaching any
+        prompt to E is the canonical selection error for this trial.
+
+        Unique bijection: prompt 1 (stall, no loss) resolves only to A;
+        prompt 3 (sustained throughput, high latency, near-zero loss)
+        resolves only to C; prompts 2 and 4 resolve to B and D
+        respectively only once the near-duplicate cell's differentiator is
+        projected; E attaches to nothing. No second complete assignment
+        survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 1→A and
+        3→C, the learner still faces {2,4}×{B,D,E} — E remains cross-
+        viable for both remaining prompts, so the final pairings are not a
+        forced 2-cycle; the learner must genuinely project to resolve B
+        vs. D AND to exclude E. The surplus does its job even this late in
+        the grid.
+
+        Every one of the five responses is a real TCP failure mode;
+        nothing is rejectable on sight. Difficulty is structural, not a
+        setting.
+      </annotation>
+    </example>
+
+    <example id="2" axis="boundary-condition" n="4" d="1" pool="A-E" correct-key="1-B,2-D,3-A,4-E">
+      <concept>Tire thermal operating window</concept>
+      <domain>motorsport</domain>
+
+      <stem>
+        Match each grip-loss situation to its mechanism. Not every
+        mechanism is used.
+      </stem>
+
+      <prompts>
+        <item label="1">
+          Out-lap, cold track, fresh tires: slides for two laps, then grip
+          arrives and holds.
+        </item>
+        <item label="2" role="near-duplicate" pair-with="3">
+          Mid-stint, following closely through high-speed corners: fronts
+          progressively lose bite; backing off a lap does not restore
+          them, but a cooler sequence does.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="2">
+          Late in a long stint, one compound: grip fades, surface marbled
+          and greasy, no temperature management brings it back.
+        </item>
+        <item label="4">
+          Early in a stint, right after starting inflation was lowered:
+          grip down from the first flying lap, flat all stint, tire runs
+          hotter than telemetry expects.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for near-duplicate" pair-with="3">
+          Passed its wear life — rubber spent (marbling), grip structurally
+          gone regardless of temperature.
+        </item>
+        <item label="B" role="correct-for" pair-with="1">
+          Core temp below the window — cold compound slides until worked
+          into the window, then grip appears and holds.
+        </item>
+        <item label="C" role="orthodox-but-wrong">
+          The driver is overdriving — sliding the car and overworking the
+          rubber; manage pace, not tire.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="2">
+          Surface temp above the window — overheated compound greases
+          over, recovering only once it cools back in.
+        </item>
+        <item label="E" role="correct-for" pair-with="4">
+          Inflation outside the target window — wrong pressure distorts the
+          contact patch and shifts thermal behaviour, depressing grip all
+          run.
+        </item>
+      </responses>
+
+      <correct-key>1→B, 2→D, 3→A, 4→E (C unused)</correct-key>
+
+      <annotation>
+        Cross-viability: the shared surface fact across all four prompts
+        is "grip is low" — the differentiator in every case is WHICH
+        threshold was crossed, legible only from the onset and recovery
+        signature. A (wear) is surface-viable for prompts 2 and 3. B
+        (under-temp) is surface-viable for 1, 2, and 4. C (overdriving,
+        the orthodox lure) is surface-viable for 2, 3, and 4 — any fading
+        grip invites it. D (over-temp) is surface-viable for 2, 3, and 4.
+        E (pressure) is surface-viable for 1, 2, and 4.
+
+        Near-duplicate confusion cell: prompts 2 and 3 (twin: both
+        stint-long grip fade with a greasy surface) crossed with responses
+        D and A (twin: both describe irreversible-reading grip loss). The
+        projected differentiator is REVERSIBILITY: prompt 2 recovers on a
+        cooler sequence — thermal, not structural — resolving to D; prompt
+        3 does not recover under any temperature management, and the
+        surface is marbled — structural wear — resolving to A. Each twin
+        prompt embeds its own firing condition (recovers-on-cooling vs.
+        never-recovers) precisely so the cell is resolvable without
+        leaking the pairing — the over-specify-to-preserve-a-single-key
+        rule in action (see the near-duplicate-forces-ambiguity edge
+        case).
+
+        Orthodox-but-wrong (C): "the driver is overdriving, manage the
+        pace" is the reflexive explanation for any fading grip —
+        convention pulls hard toward it precisely because it requires no
+        telemetry to defend. It matches nothing: every prompt carries a
+        threshold signature (grip arriving on warm-up, recovering on
+        cooling, marbling with no recovery, a whole-run flat deficit
+        tracking a pressure change) that a driving-style explanation does
+        not produce and cannot account for.
+
+        Unique bijection: prompt 1 (grip arrives after two laps) resolves
+        only to B; prompt 3 (irreversible, marbled) resolves only to A;
+        prompt 2 (reversible on cooling) resolves only to D; prompt 4
+        (whole-run flat, runs hotter, follows a pressure change) resolves
+        only to E; C attaches to nothing. No second complete assignment
+        survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 1→B and
+        4→E, the learner still faces {2,3}×{A,D,C} — reversibility must
+        still be projected to split A from D and to reject C; the pairing
+        does not unzip early.
+      </annotation>
+    </example>
+
+    <example id="4" axis="recognition" n="4" d="1" pool="A-E" correct-key="1-B,2-C,3-E,4-A">
+      <concept>Concurrency bug classification (deadlock, livelock, starvation, race condition)</concept>
+      <domain>software / systems</domain>
+
+      <stem>
+        Match each observed thread-behavior case to what it actually is.
+        Not every classification is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="3">
+          Two worker threads each hold one of two locks and each is blocked
+          waiting on the lock the other holds; CPU usage for both threads
+          drops to zero and stays there, with no timeout configured on
+          either lock.
+        </item>
+        <item label="2">
+          A background thread assigned the lowest scheduling priority makes
+          no progress for extended periods: it stays runnable the whole
+          time and holds no lock, yet the scheduler keeps handing available
+          CPU to other runnable threads first, so it is passed over rather
+          than ever reacting to another thread or doing work of its own.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="1">
+          Two worker threads each repeatedly detect that the other has
+          changed a shared piece of state and each rolls back and retries
+          its own operation in response; CPU usage for both threads stays
+          high throughout, and neither thread ever holds a lock the other
+          is waiting on.
+        </item>
+        <item label="4">
+          Two threads increment a shared counter without any synchronization
+          between them; the program always terminates normally, but the
+          final count is occasionally lower than the true number of
+          increments performed.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="4">
+          Multiple threads read and modify the same memory without
+          coordination, so the final result depends on the exact order
+          their operations happen to interleave, occasionally losing an
+          update.
+        </item>
+        <item label="B" role="correct-for near-duplicate" pair-with="1">
+          Two or more threads each hold a resource the other needs and each
+          waits on the other to release it, so neither can ever proceed — a
+          fixed circular dependency with no timeout to break it.
+        </item>
+        <item label="C" role="correct-for" pair-with="2">
+          A thread makes no progress because the scheduler consistently
+          gives available CPU time to other runnable threads first, leaving
+          it waiting indefinitely for a turn that keeps getting deferred.
+        </item>
+        <item label="D" role="orthodox-but-wrong">
+          The threads are contending too heavily for a single lock;
+          splitting that lock into several smaller locks over separate
+          pieces of state reduces the contention.
+        </item>
+        <item label="E" role="correct-for near-duplicate" pair-with="3">
+          Two or more threads keep detecting a conflict from each other's
+          actions and keep retrying in response, so each stays busy but
+          none of them ever holds the resource long enough to finish — no
+          thread is ever blocked, all remain runnable throughout.
+        </item>
+      </responses>
+
+      <correct-key>1→B, 2→C, 3→E, 4→A (D unused)</correct-key>
+
+      <annotation>
+        Cross-viability: B (circular wait) is surface-viable for 1 (direct)
+        and 3 (surface: "two threads stuck due to each other's actions"
+        reads as a circular-dependency candidate before registering that 3's
+        threads are never blocked). E (busy-retry) is surface-viable for 3
+        (direct) and 1 (surface: "both back off and interact badly" could
+        misread as an active retry pattern before registering 1's CPU drops
+        to zero and stays there); E is additionally surface-viable for 2
+        (prompt 2's thread "stays runnable the whole time," which reads as a
+        spin/retry pattern until one notices it never reacts to a peer). C
+        (starvation) is surface-viable for 2 (direct — but prompt 2 is a
+        contested, not free, prompt, since its "stays runnable" framing also
+        draws E on the surface) and softly for 1/3 (any "thread not
+        progressing" framing invites it before the specific mechanism is
+        checked). A (race
+        condition) is surface-viable for 4 (direct) and softly for 3 (3's
+        "detects that the other has changed shared state" reads like
+        concurrent-access framing before noting 3 never touches a lock at
+        all). D (orthodox lock-contention fix) is surface-viable for 1
+        (lock-related, obviously), 3 (looks like contention over shared
+        state), and softly 4 (shared-state framing).
+
+        Near-duplicate confusion cell: prompts 1 and 3 (twin: both are "two
+        worker threads stuck due to interacting with each other") crossed
+        with responses B and E (twin: both describe two threads locked in a
+        mutually-caused stall). The one differentiating projection: is a
+        thread actually BLOCKED, holding a resource and waiting on the
+        other (1, CPU flat at zero, no timeout to break it → B), or is it
+        actively RUNNING and retrying in response to the other's changes,
+        never blocked at all (3, CPU stays high, neither ever holds a lock
+        the other waits on → E)? "Two threads stuck because of each other"
+        is the surface feature shared by both twins; whether CPU drops to
+        zero (blocked) or stays high (spinning) is the projected
+        differentiator. Cross-wiring 1↔3 / B↔E is the canonical
+        transposition error — the textbook deadlock/livelock confusion.
+
+        Orthodox-but-wrong (D): "too much lock contention, split the lock"
+        is the reflexive fix for any thread interference — professionally
+        sound advice in general. It matches nothing here: prompt 1's
+        threads are in a fixed circular wait that persists regardless of
+        lock granularity (splitting locks doesn't fix ordering); prompt 3
+        has no locks involved at all; prompt 4's problem is missing
+        synchronization, not excess contention on one lock.
+
+        Unique bijection: prompt 2 (stays runnable but holds no lock and
+        never reacts to another thread, just deferred by the scheduler)
+        resolves only to C — E is ruled out because prompt 2's thread does
+        no retrying in response to a peer, the defining feature of livelock;
+        prompt 4 (unsynchronized shared counter, no hang) resolves only to
+        A; prompts 1 and 3 resolve to B and E only once the blocked-vs-
+        spinning projection is applied; D attaches to nothing. No second
+        complete assignment survives — attaching B to 3 directly
+        contradicts 3's stated "neither thread ever holds a lock the other
+        is waiting on," and attaching E to 1 directly contradicts 1's
+        stated zero CPU usage.
+
+        No-elimination-shortcut (D=1): after correctly placing 2→C and
+        4→A, the learner still faces {1,3}×{B,D,E} — D (the lock-splitting
+        fix) remains surface-plausible for both remaining prompts, so the
+        pairing is not a forced 2-cycle; the learner must genuinely project
+        the blocked-vs-spinning distinction to split B from E and
+        separately reject D.
+      </annotation>
+    </example>
+
+    <example id="6" axis="time" n="4" d="1" pool="A-E" correct-key="1-E,2-B,3-A,4-D">
+      <concept>Read-after-write visibility under asynchronous replication and a fixed-TTL cache, in the same system</concept>
+      <domain>distributed systems / caching</domain>
+
+      <stem>
+        Match each write-then-read case to what the read actually returns,
+        given how much time has elapsed at each stage. Not every outcome is
+        used.
+      </stem>
+
+      <prompts>
+        <item label="1">
+          A client writes a value, then immediately (within 10ms) reads it
+          back through a request routed to a replica, in a system whose
+          replication typically completes within 250ms.
+        </item>
+        <item label="2">
+          A client writes a value, waits 2 seconds, then reads it back
+          through a request routed to the same replica.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="4">
+          A different client had already read and cached this key 5 seconds
+          before the write occurred; that client reads the key again,
+          through the cache, 3 seconds after the write. The cache's entries
+          expire 60 seconds after being cached.
+        </item>
+        <item label="4" role="near-duplicate" pair-with="3">
+          A different client had already read and cached this key 90
+          seconds before the write occurred; that client reads the key
+          again, through the cache, 3 seconds after the write. The cache's
+          entries expire 60 seconds after being cached.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for near-duplicate" pair-with="3">
+          The cached entry was already within its 60-second expiry window
+          when the write occurred and remains within that window at the
+          time of this read, so the cache keeps serving the value it
+          already held rather than the newly written one.
+        </item>
+        <item label="B" role="correct-for" pair-with="2">
+          Enough time has elapsed since the write that replication has
+          already completed well before the read arrives, so the replica
+          returns the newly written value.
+        </item>
+        <item label="C" role="orthodox-but-wrong">
+          A cache entry still within its 60-second lifetime is fresh and so
+          reflects the current value, meaning the read returns the newly
+          written value; only an entry past its lifetime is stale and would
+          hand back an outdated value.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="4">
+          The cached entry had already exceeded its 60-second expiry window
+          by the time of this read, so the cache treats it as expired and
+          re-fetches — and by that point the write has long since
+          replicated, so the re-fetch returns the newly written value.
+        </item>
+        <item label="E" role="correct-for" pair-with="1">
+          The read reaches the replica before replication has had time to
+          complete, so the replica still holds the value that was in place
+          immediately before the write.
+        </item>
+      </responses>
+
+      <correct-key>1→E, 2→B, 3→A, 4→D (C unused)</correct-key>
+
+      <annotation>
+        Cross-viability: E (read arrives before replication completes) is
+        surface-viable for 1 (direct) and 2 (a shallow read might not weigh
+        2 seconds against the 250ms typical lag and assume replication
+        could still be incomplete). B (replication completed) is
+        surface-viable for 2 (direct) and 1 (a shallow read might treat
+        "within 10ms" as close enough to instant that replication is
+        assumed complete). A and D (cache-TTL mechanics) are
+        surface-viable for each other's prompt as described below, and
+        softly for 1/2 since all four prompts share one write-then-read
+        frame and a reader may not immediately separate the replica-path
+        mechanism from the cache-path mechanism. C (the fresh-means-current
+        misconception) is surface-viable for 3 and 4 directly (both are
+        cache reads whose entry age relative to the 60-second TTL reads as
+        the obviously relevant question) and softly for 1/2 under the
+        general "reads shortly after a write risk staleness" framing.
+
+        Near-duplicate confusion cell: prompts 3 and 4 (twin: both are
+        cache reads of a key that was already cached before the write, read
+        again 3 seconds after the write) crossed with responses A and D
+        (twin: both describe the cache's TTL state at the moment of the
+        read). The differentiating projection is arithmetic, not just
+        conceptual: prompt 3's entry was cached 5 seconds before the write
+        and read 3 seconds after — 8 seconds of total cache age, well under
+        the 60-second window, so it has NOT expired → A. Prompt 4's entry
+        was cached 90 seconds before the write and read 3 seconds after —
+        93 seconds of total cache age, past the 60-second window, so it HAS
+        expired on its own schedule, independent of the write → D. "A cache
+        read shortly after a write, key already cached" is the surface
+        feature shared by both twins; whether the entry's OWN age (not the
+        write's age) has crossed 60 seconds is the projected
+        differentiator.
+
+        Orthodox-but-wrong (C): "an entry still within its TTL is fresh, so
+        it reflects the current value" is the pervasive fresh-means-current
+        misconception — it conflates a cache entry's FRESHNESS (age still
+        under the TTL) with its DATA CURRENCY (whether it holds the latest
+        write). The two are inverse for a cache these writes do not
+        invalidate: an entry comfortably within its lifetime is precisely
+        the one still serving whatever it cached BEFORE the write (the old
+        value), while an entry past its lifetime is the one that re-fetches
+        and picks up the new value. C therefore predicts the wrong verdict
+        on both cache prompts — it calls prompt 3 (age 8s, within TTL)
+        "fresh → new value" when the true answer is the old cached value,
+        and calls prompt 4 (age 93s, past TTL) "stale → old value" when the
+        true answer is the newly written value. C matches no prompt: it is
+        verdict-wrong on 3 and 4, and its premise ("a cache entry within its
+        lifetime") does not even hold for the replica-path prompts 1 and 2,
+        which involve no cache entry at all. This is a strictly stronger
+        distractor than a write-relative-clock rule, which — because
+        prompts 3 and 4 are read at the same 3-second offset from their
+        writes — would coincide with whichever twin genuinely returns the
+        old value and so leave a second defensible bijection; the
+        freshness-inversion form is wrong on both twins and leaves exactly
+        one.
+
+        Unique bijection: prompt 1 (read within 10ms, well inside the
+        typical 250ms replication lag) resolves only to E; prompt 2
+        (2-second wait, well past typical replication lag) resolves only
+        to B; prompts 3 and 4 resolve to A and D respectively only once the
+        cache-age arithmetic is projected; C attaches to nothing. No second
+        complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 1→E and
+        2→B, the learner still faces {3,4}×{A,C,D} — C remains
+        surface-plausible for both remaining prompts (the freshness framing
+        reads as relevant to both cache entries), so the pairing is not
+        a forced 2-cycle; the learner must compute both cache-age figures
+        to split A from D and separately reject C.
+      </annotation>
+    </example>
+
+    <example id="7" axis="risk" n="5" d="2" pool="A-G" correct-key="1-C,2-F,3-A,4-B,5-D">
+      <concept>Schema-migration constraints and the failure surface each migration approach actually opens</concept>
+      <domain>databases / operations</domain>
+
+      <note>
+        This example is n=5, D=2 (pool of seven, two distractors) — a
+        mid-range grid above the n=4/D=1 default, showing that the density,
+        unique-bijection, and no-elimination properties hold as n grows and
+        that a second distractor gives a second, distinctly-failing orthodox
+        lure a home.
+      </note>
+
+      <stem>
+        Match each migration scenario and its constraint to the failure
+        surface it actually opens. Not every failure surface is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="2">
+          Adding a NOT NULL column with a default value to a
+          200-million-row table; the constraint is that no table-level lock
+          may be held longer than a few hundred milliseconds at any point,
+          though the overall migration may take several minutes.
+        </item>
+        <item label="2" role="near-duplicate" pair-with="1">
+          Renaming a column that many services reference directly by name
+          in their queries, where a shared connection pool routes queries
+          to any of those services without coordination; the constraint is
+          that no moment may exist where some services resolve the old
+          name while others resolve the new name.
+        </item>
+        <item label="3">
+          Deleting a large batch of rows that are no longer needed, to
+          reclaim storage; the constraint is that if the deletion needs to
+          be reversed after it starts, full recovery of the deleted rows
+          needs to remain possible for at least 24 hours afterward.
+        </item>
+        <item label="4">
+          Changing a column's storage encoding to a more compact format
+          under a fixed maintenance window; the constraint is that once the
+          window closes and traffic resumes, whatever state the migration
+          is in at that point is treated as final, with no further
+          opportunity to revisit it.
+        </item>
+        <item label="5">
+          Backfilling a newly added column's values across a large table in
+          repeated batches while the table keeps taking live writes; the
+          constraint is that a row updated by application traffic after its
+          batch has already been processed still ends up holding the correct
+          backfilled value rather than a stale one.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="3">
+          Performing the deletion by removing rows directly, without
+          retaining a recoverable copy, makes the data physically gone once
+          the deletion commits, so there is nothing left to reverse from
+          after that point, regardless of how much time has passed.
+        </item>
+        <item label="B" role="correct-for" pair-with="4">
+          Performing the encoding change as an in-place rewrite that is
+          only partially complete when the maintenance window closes leaves
+          the column in a mixed-encoding state with no further window to
+          finish or revert it.
+        </item>
+        <item label="C" role="correct-for near-duplicate" pair-with="1">
+          Performing the migration as a single ALTER that rewrites the
+          whole table acquires a lock for the full rewrite duration, which
+          on a 200-million-row table can hold the table lock far longer
+          than a few hundred milliseconds, blocking all writes for the
+          duration.
+        </item>
+        <item label="D" role="correct-for" pair-with="5">
+          Backfilling in a single pass that reads each row once and writes
+          the computed value leaves any row that application traffic
+          modifies after its batch was read still holding the earlier
+          computed value, because the one-pass backfill never revisits rows
+          that changed behind it.
+        </item>
+        <item label="E" role="orthodox-but-wrong">
+          Running the migration inside a single transaction guarantees that
+          either all of its changes take effect or none of them do, giving
+          a clean all-or-nothing outcome.
+        </item>
+        <item label="F" role="correct-for near-duplicate" pair-with="2">
+          Performing the rename as a single atomic DDL statement still
+          leaves a window, however brief, where already-open connections
+          continue resolving the old name while new connections resolve the
+          new name, because the connection pool does not coordinate a
+          simultaneous cutover across existing connections.
+        </item>
+        <item label="G" role="distractor">
+          Because the migration shifts the table's data distribution, the
+          query planner's cached statistics go stale and some queries choose
+          worse execution plans until the statistics are recomputed.
+        </item>
+      </responses>
+
+      <correct-key>1→C, 2→F, 3→A, 4→B, 5→D (E and G unused)</correct-key>
+
+      <annotation>
+        Cross-viability: C (long lock hold from full rewrite) is
+        surface-viable for 1 (direct) and softly 4 (a large in-place rewrite
+        framing suggests lock/blocking concerns). F (connection-pool cutover
+        skew) is surface-viable for 2 (direct) and softly 1 (both read as "a
+        window where the system is in an inconsistent in-between state"
+        before the specific mechanism — exclusive lock vs. connection-level
+        skew — is checked). A (physical irreversibility) is surface-viable
+        for 3 (direct) and softly 4 (both are "no going back once it
+        happens"). B (stuck mid-rewrite at a deadline) is surface-viable for
+        4 (direct) and softly 3 and 5 (both read as "the migration was
+        interrupted partway into a bad state"). D (stale backfill for
+        concurrently-updated rows) is surface-viable for 5 (direct) and
+        softly 1 (both are large-table single-pass operations). E
+        (transactional atomicity) and G (stale planner statistics) are each
+        surface-viable across all five — every constrained migration invites
+        "wrap it in a transaction" and "watch out for stale plan stats" as
+        reflexive answers. Every prompt faces ≥2 surface-viable responses,
+        and no response is surface-locked to exactly one prompt.
+
+        Near-duplicate confusion cell: prompts 1 and 2 (twin: both describe
+        a moment during migration where the system could be caught in an
+        inconsistent in-between state) crossed with responses C and F (twin:
+        both describe a window-bound problem during the migration). The
+        differentiating projection: is the violated constraint about an
+        exclusive TABLE LOCK blocking all writes for too long (1, a
+        200-million-row full rewrite, lock-duration constraint → C), or
+        about CONNECTION-POOL-level visibility skew with no blocking at all
+        (2, a metadata-level rename, cross-connection-consistency constraint
+        → F)? Both responses read as "a window during migration where
+        something goes wrong"; only checking which specific constraint each
+        prompt states — lock duration versus cross-connection name
+        visibility — resolves which surface applies. C does not fit 2 (a
+        rename is not a full-table rewrite; 2 never mentions row count or
+        lock duration), and F does not fit 1 (1 never mentions multiple
+        services or a connection pool).
+
+        Two distractors, each failing for a distinct reason, only under
+        projection:
+        · E (orthodox-but-wrong): "wrap it in a transaction for an
+          all-or-nothing outcome" is standard atomicity advice — but it
+          addresses none of these five constraints. 1's is lock DURATION (a
+          transaction does not shorten it); 2's is connection-pool
+          visibility (governed by client-side routing, not the DB
+          transaction); 3's is physical recoverability AFTER commit (which
+          atomicity cannot provide once committed); 4's is a hard external
+          deadline (which atomicity does not stop from cutting a change
+          mid-flight); 5's is cross-row consistency under concurrent writes
+          during a long backfill (which a single wrapping transaction would
+          make worse, not better, by holding locks for the whole backfill).
+        · G (second distractor): stale query-planner statistics after a
+          migration is a real operational concern and reads as broadly
+          applicable — but none of the five constraints is about query-plan
+          quality. G names a consequence no prompt's constraint asks about;
+          it fails for a reason orthogonal to E's (plan stability, not
+          atomicity), so the two distractors are not redundant.
+
+        Unique bijection: prompt 3 (irreversibility, no recoverable copy) →
+        A only — B is rewrite/deadline-specific and 3 is neither an in-place
+        rewrite nor under a window; prompt 4 (deadline, partial rewrite
+        final at window close) → B only — A is delete-specific and 4 deletes
+        nothing; prompt 5 (stale backfill under concurrency) → D only — B
+        needs a maintenance-window deadline 5 does not state; prompts 1 and
+        2 resolve to C and F only under the lock-duration-vs-connection-skew
+        projection; E and G attach to nothing. No second complete assignment
+        survives.
+
+        No-elimination-shortcut (D=2, n=5): after correctly placing 3→A,
+        4→B, and 5→D, the learner still faces {1,2}×{C,F,E,G} — both
+        surplus responses E and G remain surface-plausible alongside the two
+        correct ones, so the final pair is not a forced 2-cycle; the learner
+        must project the lock-vs-skew distinction to split C from F and
+        separately reject E and G.
+      </annotation>
+    </example>
+
+    <example id="8" axis="coupling" n="4" d="1" pool="A-E" correct-key="1-D,2-A,3-E,4-B">
+      <concept>Service-decomposition arrangements and the dependency each one actually leaves in place</concept>
+      <domain>distributed systems / service architecture</domain>
+
+      <stem>
+        Match each service arrangement to the dependency consequence it
+        actually leaves in place. Not every consequence is used.
+      </stem>
+
+      <prompts>
+        <item label="1" role="near-duplicate" pair-with="3">
+          Two services are split from one codebase, each with its own
+          database, and both read from and write to a single shared
+          message-queue topic, with no defined ownership boundary over the
+          message schema on either side.
+        </item>
+        <item label="2">
+          Two services are split with separate databases and no shared
+          queue, but Service A calls Service B synchronously in the request
+          path for every user-facing request, and Service B has no
+          independent way to serve those requests if Service A's
+          request-shaping logic changes.
+        </item>
+        <item label="3" role="near-duplicate" pair-with="1">
+          Two services are split with separate databases and asynchronous
+          eventing between them — no synchronous calls in the request path
+          — but the event payload schema is defined by copying Service A's
+          internal database row structure directly, field for field.
+        </item>
+        <item label="4">
+          Two services are split with separate databases and their own
+          defined API contracts, but both are deployed from the same
+          CI/CD pipeline stage and cannot be deployed independently — a
+          change to either always redeploys both together.
+        </item>
+      </prompts>
+
+      <responses>
+        <item label="A" role="correct-for" pair-with="2">
+          Because Service A's specific request-shaping logic is what
+          Service B's request-path behavior implicitly depends on, a change
+          to how Service A forms its calls can break Service B's behavior
+          in production even though Service B's own code never changed.
+        </item>
+        <item label="B" role="correct-for" pair-with="4">
+          Because both services are redeployed together from the same
+          pipeline stage regardless of which one actually changed, a
+          failing or slow rollout on one service's change blocks or delays
+          the release of unrelated changes to the other service.
+        </item>
+        <item label="C" role="orthodox-but-wrong">
+          Splitting a monolith into two services with separate databases
+          removes the shared-database coupling that made independent
+          releases impossible, so the two services can now be deployed and
+          scaled independently.
+        </item>
+        <item label="D" role="correct-for near-duplicate" pair-with="1">
+          Because both services read and write the same queue topic without
+          a schema-ownership boundary, a change either service makes to the
+          message shape can silently break the other's consumer, even
+          though the services otherwise share no code or database.
+        </item>
+        <item label="E" role="correct-for near-duplicate" pair-with="3">
+          Because the event schema is a direct copy of Service A's internal
+          row structure, any change to Service A's internal storage
+          representation — even one that doesn't change Service A's own
+          external behavior — forces a corresponding change to the event
+          schema and therefore to Service B's consumer.
+        </item>
+      </responses>
+
+      <correct-key>1→D, 2→A, 3→E, 4→B (C unused)</correct-key>
+
+      <annotation>
+        Cross-viability: D (shared-topic, no ownership boundary) is
+        surface-viable for 1 (direct) and softly 3 (both involve
+        message/event-based communication, inviting conflation of "shared
+        queue" with "shared event schema"). E (event schema copies internal
+        structure) is surface-viable for 3 (direct) and softly 1 (both are
+        about message/event PAYLOAD problems before the specific mechanism
+        — topic governance vs. schema provenance — is checked). A (implicit
+        dependency on caller's shaping logic) is surface-viable for 2
+        (direct) and softly 4 (both are "a change to one affects release or
+        behavior of the other" scenarios). B (coupled deploys) is
+        surface-viable for 4 (direct) and softly 2 (both are
+        deployment/release-level blocking scenarios). C (separate-databases
+        claim) is surface-viable across all four — every prompt explicitly
+        states separate databases, inviting the natural but wrong inference
+        that database separation alone means decoupling.
+
+        Near-duplicate confusion cell: prompts 1 and 3 (twin: both are
+        asynchronous, message/event-based arrangements) crossed with
+        responses D and E (twin: both describe an entanglement that
+        survives despite the async, no-shared-database arrangement). The
+        differentiating projection: is the coupling in the TOPIC ITSELF —
+        both services able to read and write the same topic with no
+        governance boundary on message shape (1 → D) — or in the EVENT
+        SCHEMA'S PROVENANCE — a schema that is a direct copy of one
+        service's internal storage structure, leaking internal
+        representation into the public contract even with clean
+        one-directional eventing (3 → E)? "Message/event-based coupling" is
+        the surface feature shared by both twins; which specific structural
+        detail — shared-topic governance or schema-copies-internal-storage
+        — produces the consequence is the projected differentiator. D does
+        not fit 3 (3 has no shared-topic governance problem stated — it is
+        one-directional eventing), and E does not fit 1 (1 never mentions
+        the event schema being copied from internal storage — its problem
+        is topic-level, not schema-provenance).
+
+        Orthodox-but-wrong (C): "separate databases remove the coupling
+        that blocked independent deployment" is the standard justification
+        for extract-service refactors, and it is true as far as it goes —
+        but none of these four arrangements retains coupling THROUGH the
+        database. Each retains some other structural coupling instead
+        (shared-topic governance, a synchronous call dependency, copied
+        event schema, or a shared pipeline stage), and database separation
+        does nothing to address any of those. C never names the actual
+        mechanism at work in any of the four cases.
+
+        Unique bijection: prompt 2 (synchronous call, implicit dependency
+        on caller logic) resolves only to A; prompt 4 (shared pipeline
+        stage, coupled deploys) resolves only to B; prompts 1 and 3 resolve
+        to D and E respectively only once the
+        topic-governance-vs-schema-provenance projection is applied; C
+        attaches to nothing. No second complete assignment survives.
+
+        No-elimination-shortcut (D=1): after correctly placing 2→A and
+        4→B, the learner still faces {1,3}×{C,D,E} — C remains
+        surface-plausible for both remaining prompts (both explicitly state
+        separate databases), so the pairing is not a forced 2-cycle; the
+        learner must project which specific structural detail is retained
+        to split D from E and separately reject C.
+      </annotation>
+    </example>
+```
+
+### A.2 — Axis-fit fallback exercises (R-2 hostile axes)
+
+```xml
+  <!-- ============================================================
+       AXIS-FIT FALLBACK EXERCISES
+       Compact demonstrations of construction-sequence step 2 / REQ-MAT-E-003
+       firing on the three axes most prone to surface collapse (R-2):
+       recognition, transfer, coupling. These are not full trials — they
+       record the axis-fit judgment, the failure reason, and the redraw
+       landing. Full successful trials for these axes are examples 4
+       (recognition), 3 (transfer), and 8 (coupling) above.
+  ============================================================ -->
+
+  <axis-fit-fallback-exercises>
+    <note>
+      Per construction-sequence step 2, judging axis-fit happens BEFORE
+      case-set construction — it is a cheap test of whether the assigned
+      axis's role-pairing can be made load-bearing for the concept at all,
+      not a post-hoc discovery after a trial fails validation. These
+      exercises document that judgment failing on a concept genuinely
+      mismatched to the axis, the resulting signal to the orchestration
+      layer, and the redraw landing on an axis that fits. This is a
+      distinct failure surface from the internal-validation checklist
+      (which catches a constructed trial that collapses to surface
+      association); axis-fit is caught earlier, before any prompt or
+      response is written.
+    </note>
+
+    <exercise id="1" axis-rejected="recognition" lands-on="application">
+      <concept>Retry-with-backoff behavior under different parameter and dependency conditions (the concept behind example 5)</concept>
+
+      <axis-fit-judgment>
+        Recognition's role-pairing is presentation → classification: each
+        prompt must be a case whose TRUE IDENTITY is at risk of being
+        misrecognized from a familiar surface label. This concept affords
+        no such structure. There is exactly one mechanism in play — retry
+        with backoff — instantiated under different parameters; every
+        prompt is already unambiguously "a retry-with-backoff scenario,"
+        with nothing about its true category in question. Forcing a
+        classification framing collapses to one of two failures: either
+        trivial 1:1 labeling (every prompt says "retry," nothing left to
+        recognize), or classification categories invented that the concept
+        itself does not have. No dense, projection-resolvable
+        presentation→classification grid is constructible.
+      </axis-fit-judgment>
+
+      <signal>
+        Axis-fit failure reported to the orchestration layer per
+        REQ-MAT-E-003. The orchestrator invokes `select_mcq_axis.py
+        --exclude recognition[, plus any axes already used this session]`.
+      </signal>
+
+      <redraw-landing>
+        Axis reassigned to `application`. Application's role-pairing —
+        situation-with-parameters → produced-outcome — fits directly: every
+        prompt already IS a situation with specific parameters, and the
+        axis question ("what does applying the concept here actually
+        produce?") is exactly what the concept affords. Construction
+        proceeds under application; see example 5 for the resulting trial.
+      </redraw-landing>
+    </exercise>
+
+    <exercise id="2" axis-rejected="transfer" lands-on="boundary-condition">
+      <concept>Browser cookie SameSite attribute behavior (Strict / Lax / None) across cross-site request contexts</concept>
+
+      <axis-fit-judgment>
+        Transfer's construction rule (REQ-MAT-F-020) requires phrasing each
+        response in a domain OTHER than its correct prompt's, so keyword
+        matching is defeated and only mechanism resolves the grid — which
+        requires the concept's mechanism to have a genuine, non-strained
+        instantiation in at least one other domain (as Little's Law does
+        across hospital/software/coffee-shop/factory in example 3).
+        SameSite cookie behavior is a browser-specific request-context
+        mechanism with no such cross-domain analogue: forcing its responses
+        into, say, factory or hospital vocabulary produces analogies so
+        strained that engaging with them requires first decoding the
+        analogy rather than the concept — directly violating
+        domain-anchoring's "a strained domain analogy is worse than an
+        abstract case set." No non-strained inversion target exists.
+      </axis-fit-judgment>
+
+      <signal>
+        Axis-fit failure reported to the orchestration layer per
+        REQ-MAT-E-003. The orchestrator invokes `select_mcq_axis.py
+        --exclude transfer[, plus any axes already used this session]`.
+      </signal>
+
+      <redraw-landing>
+        Axis reassigned to `boundary-condition`. This fits well: the
+        Strict/Lax/None distinctions are threshold behavior — which
+        cross-site request context crosses which enforcement boundary, and
+        what cookie-inclusion behavior results. Construction proceeds under
+        boundary-condition with a condition→behavior role-pairing (specific
+        cross-site request contexts → the resulting inclusion behavior).
+      </redraw-landing>
+    </exercise>
+
+    <exercise id="3" axis-rejected="coupling" lands-on="boundary-condition">
+      <concept>Hash table resizing (load factor and rehashing)</concept>
+
+      <axis-fit-judgment>
+        Coupling's role-pairing is structural-arrangement →
+        entanglement-consequence: it requires an arrangement of MULTIPLE
+        components with a dependency one leaves on another. Hash table
+        resizing is a single data structure's internal behavior — there is
+        no second component for anything to be entangled with, and no
+        arrangement to vary across prompts. No dense grid under coupling's
+        semantic is constructible for a concept with nothing to couple.
+      </axis-fit-judgment>
+
+      <signal>
+        Axis-fit failure reported to the orchestration layer per
+        REQ-MAT-E-003. The orchestrator invokes `select_mcq_axis.py
+        --exclude coupling[, plus any axes already used this session]`.
+      </signal>
+
+      <redraw-landing>
+        Axis reassigned to `boundary-condition`. This fits well:
+        load-factor threshold crossings triggering rehashing are a clean
+        condition→behavior structure (different load-factor and
+        access-pattern conditions producing different resize-timing and
+        amortized-cost behaviors). Construction proceeds under
+        boundary-condition. Coupling itself is fully demonstrated fitting
+        its own semantic in example 8, on a concept — service decomposition
+        — that genuinely has a multi-component arrangement to test.
+      </redraw-landing>
+    </exercise>
+  </axis-fit-fallback-exercises>
+```
