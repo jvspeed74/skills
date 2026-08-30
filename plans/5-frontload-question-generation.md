@@ -97,11 +97,86 @@ MCQ, every unselected choice for MSQ, every distractor for Ordering/Matching. A 
 construction defect: delivery would have to author that rationale live, which is exactly the cost
 this feature exists to move.
 
+## Amendments (post sub-issue planning)
+
+Ten corrections, raised by the #8 and #9 planning passes. Two were found independently by both.
+The schema above stands as amended here; **this section wins on conflict.**
+
+| # | Correction | Origin |
+|---|---|---|
+| A-1 | **The four generation prompts forbid batching.** Each carries `<generation-cadence>` ("Do NOT pre-generate all trials before the learner has responded") and `<trial-sequence-rules><rule id="1-at-a-time">` ("This is not optional — it is structurally required") — **8 sites**, directly contradicting REQ-C-001. The original plan assigned the prompts to #9 for atoms only, leaving this text unowned. **Assigned to #9 as REQ-C-012.** Safe to remove: the rule's stated justification is adapting later trials to earlier results, a capability mcq-probe does not have — `SKILL.md:78` reads "Run all N trials regardless of intermediate performance. No early termination," and type/axis are script-randomized. The one real cross-trial coupling is axis *exclusion* for variety, which the two-pass draw preserves exactly. Vestigial, near-certainly inherited from PGL's exit-gate, where a re-teach loop does exist. | #8 + #9, independently |
+| A-2 | **No wire format was fixed.** The plan showed YAML-ish pseudo-schema, the prompts are XML, `SKILL.md`'s internal record is a brace pseudo-object — and #8 and #9 were building the producer and consumer against that undefined boundary in parallel. **Resolved: JSON.** One object per trial, emitted in a fenced block, internal-only. Unambiguous, and it is the form #7 persists. | #9 (#8 adjacent) |
+| A-3 | **`key_survival` was a single `str` but must carry 1 to 7 statements** — and the Response Protocols require each to be addressed *individually*. Left unfixed, Ordering's and Matching's incorrect branches lose coverage. **Now type-specific**, mirroring how `choices`/`key` already vary. See revised schema below. | #9 |
+| A-4 | **`near_duplicate_of` names a choice label, not a `distractor_failures` key.** It may be the key label (MCQ), is always a correct step (Ordering), and is typically null throughout (Matching, where the cell is 2 twin prompts × 2 twin *correct* responses and no distractor participates). Dereferencing it as a key silently misses. Documented explicitly. | #9 |
+| A-5 | **`near_duplicate_differentiator` was singular** but the construct is not: Matching needs a prompt-side *and* a response-side phrase and can carry two cells; Ordering permits multiple near-duplicates at D=3; MSQ clusters can span 3+ choices, which one label cannot name. **Now a list.** | #9 |
+| A-6 | **The "why it was not visible on first read" account had no field**, though all four `<evaluation-framework>` sections require it. `failure` is the failure *point*, which is a different thing. **New per-distractor field `viability_account`.** This is doctrine-load-bearing, not cosmetic: it makes the every-wrong-answer-viable invariant *auditable*. A distractor whose viability account cannot be written is not viable — it is a construction defect, caught at generation. | #9 |
+| A-7 | **Coverage rule wording was wrong.** "Every unselected choice for MSQ" is learner-relative and unknowable at generation. Correct reading: **every choice not in the key.** | #9 |
+| A-8 | **The schema had no `grade` and no `gap_summary`**, which the Analysis Phase, Trial Log and Gap Inventory all require, and which #7's stated trial record expects. The error was conflating generation output with the trial *record*. **The entry now carries delivery-time fields, written after the learner answers.** | #8 |
+| A-9 | **FM-C-7's threshold was set too low, and the prompt figure was stale.** Prompts measure **58.9k tokens** (MCQ 43,523 ch / MSQ 45,243 / ORD 60,258 / MAT 86,644), not "~47k". Atoms add ~250–760 tokens per trial, so a 10-trial batch measures **~7.5k–22.5k** — breaching the original ~15k flag on Matching-heavy batches. Threshold raised to 25k; the real consequence is an input to **#4's** window-size decision, not a blocker here. | #9 |
+| A-10 | **Latent ordering bug, fixed incidentally.** Prompt load is Trial Loop step 3, *after* step 2's axis-fit check that cites `ORDERING_PROMPT`/`MATCHING_PROMPT` — on trial 1 that check references a file not yet read. Moving the load ahead of pass 2 removes it. | #8 |
+
+### Revised `explanation` block
+
+```
+explanation:
+  axis_statement: str
+  key_survival: <type-specific, see table>
+  distractor_failures:
+    <label>:
+      failure: str              # the specific point where it fails under the axis
+      viability_account: str    # why it reads as correct on first pass  [A-6]
+      orthodox_but_wrong: bool
+      near_duplicate_of: <choice label>|null   # a CHOICE label — may be a correct-answer label,
+                                               # so NOT necessarily a distractor_failures key  [A-4]
+  near_duplicate_differentiators: [str]        # list; empty when none  [A-5]
+```
+
+| Type | `distractor_failures` keys | `key_survival` shape |
+|---|---|---|
+| mcq | the 3 labels not in `key` | `{<key label>: str}` — 1 entry |
+| msq | every label not in `key` (1–4) | `{<label>: str}` — one per correct label |
+| ordering | the D distractor pool labels (1–3) | `{adjacency_forcings: [str], reverse_order_failures: [str]}` — K−1 forcings, ≥2 reverse-order failures |
+| matching | the D **unused response** labels (1–3) | `{<prompt label>: str}` — one per pairing (3–7) |
+
+### Delivery-time fields  [A-8]
+
+Written onto the trial entry after the learner answers. #7 persists the whole entry.
+
+```
+grade: correct | incorrect
+gap_summary: str|null      # populated only when incorrect
+```
+
+`probe_target` stays authored by **#8's pass 2** in `SKILL.md`, not by the prompts — it is
+`SKILL.md`'s job today and moving it would widen #9 for no gain.
+
+### How FM-C-1 actually closes  [supersedes the original formulation]
+
+The #9 planning pass established something stronger than the original "baking is additive by
+instruction": **every atom field is a determination the existing internal-validation checklist
+already forces the generator to make.** Verified cell-by-cell across all four prompts — e.g.
+`ORDERING` step 4 requires "establish and write down (internally) the forcing dependency under the
+axis"; MCQ step 5 requires "Identify one phrase that will differentiate it from its pair"; MSQ
+step 4 requires "Verify it fails for a distinct reason from all other wrong answers."
+
+So baking requests **zero new judgment**, and therefore applies **zero new pressure** on distractor
+design. The atom is a transcript of a gate that already passed, not a new gate.
+
+Rendered as sequence, not exhortation: the atom step goes **after** `internal-validation` and
+**before** `output` in all four prompts. No distractor is still malleable when its atom is written.
+
+Corollary, binding: **a hard-to-write atom is evidence of a defect in the choice** — regenerate
+under the existing viability rule. It is never a reason to soften the choice.
+
 ## Requirements
 
 | ID | Requirement | Sub-issue |
 |---|---|---|
 | REQ-C-001 | A Generation Phase produces the full batch artifact before any trial is presented | #8 |
+| REQ-C-012 | The four prompts' `<generation-cadence>` and `<rule id="1-at-a-time">` blocks are amended so batched pre-generation is permitted — 8 sites  [A-1] | #9 |
+| REQ-C-013 | The trial artifact is emitted as JSON, one object per trial, internal-only  [A-2] | #9 |
+| REQ-C-014 | Each distractor entry carries `viability_account`  [A-6] | #9 |
+| REQ-C-015 | Both PRs are independently safe: #9 leaves the prompts' `output` step presenting, so the skill still runs one-at-a-time after #9 alone; #8's Generation Phase suppresses that step during generation and presents from the Delivery Loop instead. #8's Delivery Loop falls back to authoring rationale live when atoms are absent. | #8 + #9 |
 | REQ-C-002 | Pass 1 draws type+axis for all `BATCH_SIZE` slots, honoring the I5/I6 gates and the no-reuse-within-session axis rule | #8 |
 | REQ-C-003 | Pass 2 generates content per slot; ordering/matching axis refit runs here, re-drawing only from axes assigned to no other slot, up to 3 attempts, then hold-and-reconstruct | #8 |
 | REQ-C-004 | A rejected axis is not added to the session's used-axes list; it stays available to other slots | #8 |
