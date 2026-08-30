@@ -118,20 +118,35 @@ The boundaries fall on existing `##` headings — no section is split across pha
 
 ## Open questions
 
-| # | Question | Blocker for? |
-|---|---|---|
-| 1 | Does a directory-source plugin re-sync on edit, or does each content change need a `plugin.json` version bump? (FM-1) | Nothing in this issue; affects the dev loop for every PR after it |
-| 2 | Does the loader key a skill's invocation on its frontmatter `name` or its directory name? (R-4) | Entry-point stability (REQ-18-4), and the naming scheme #11–#14 inherit |
+Both resolved empirically at install, 2026-08-30. Recorded here because both bind later work.
 
-On open question 2: if it keys on **frontmatter `name`**, the current state is correct and
-`/mcq-probe` is preserved. If it keys on **directory name**, two fallbacks, in preference order:
-(a) rename the router directory to `mcq-probe` and let #11–#14 use `mcq-probe-1-generation` etc.
-without a `-0-` sibling — the numbering still reads correctly and the entry point survives;
-(b) keep `mcq-probe-0-router` and accept that the entry point becomes `/mcq-probe-0-router`,
-which contradicts the issue's entry-point-stability decision and should not be taken silently.
-Decide with the user if (a) is not clearly right at install time.
+| # | Question | Resolution |
+|---|---|---|
+| 1 | Does a directory-source plugin re-sync on edit, or does each content change need a `plugin.json` version bump? (FM-1) | **Version bump required.** The plugin installs as a **real copy** (not a symlink) into `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. `claude plugin update` alone reports "already at the latest version" and does not re-sync. Bumping `version` in `plugin.json` then running `claude plugin update` does re-sync — and it syncs from the **working tree**, not from a git commit. A restart is required to apply. Old version directories persist in the cache. |
+| 2 | Does the loader key a skill's invocation on frontmatter `name` or on directory name? (R-4) | **Directory name.** `claude plugin details` reports `Skills (1) mcq-probe-0-router` — the frontmatter `name: mcq-probe` is ignored for registration. The entry point is therefore `mcq-probe:mcq-probe-0-router`. |
+
+**Consequence of 1 — binding on every subsequent PR in this program.** Any PR that changes bundle
+content must bump `plugin.json` version. Without it a change can appear to have no effect, or
+worse, be "verified" against stale cached content and produce a false pass.
+
+**Consequence of 2 — binding on #11–#14.** The numbered-directory scheme is kept as-is
+(confirmed with the user): `mcq-probe-0-router` through `-3-analysis`, plus `mcq-probe-utils`.
+This matches PGL, whose entry point is likewise `pgl-bundle:pgl-0-orchestrator` rather than a
+short `/pgl`. It does mean this issue's entry-point-stability decision — that `/mcq-probe` keeps
+working unchanged — was **not** achieved; the invocation is now prefixed. Accepted deliberately in
+exchange for symmetric phase numbering.
 
 Issue open items 1 (visibility field) and 2 (dev-loop impact) are both resolved above.
+
+## Post-merge outcome
+
+All of steps 8–10 completed. The stale `~/.claude/skills/mcq-probe` was verified byte-identical to
+commit `6715bc8` — an earlier committed state holding nothing unique — before removal, closing R-1
+and FM-6. Marketplace registered (`source: "."` works one level below repo root, closing R-2);
+plugin installed at user scope; both selector scripts verified running from the installed cache
+path. Measured cost as installed: **~72 tokens always-on, ~8.9k on-invoke** for the router. The
+~47k of generation prompts is not preloaded — it is read at runtime during the trial loop, so the
+56,540 figure is per-session read volume rather than preload. Feature A's win is gating those reads.
 
 ## Implementation order
 
