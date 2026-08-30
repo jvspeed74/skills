@@ -36,6 +36,32 @@ ORDERING_PROMPT = /mnt/skills/user/mcq-probe/prompts/ORDERING_GENERATION_PROMPT.
 MATCHING_PROMPT = /mnt/skills/user/mcq-probe/prompts/MATCHING_GENERATION_PROMPT.md
 ```
 
+**Environment note:** The six paths above are hosted-sandbox (Claude.ai Skills) conventions,
+where they are correct and must be used as written. When this skill runs under Claude Code as
+part of the `mcq-probe` plugin bundle, resolve all six relative to `${CLAUDE_PLUGIN_ROOT}`
+instead:
+
+- `SCRIPT_TYPE` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_question_type.py`
+- `SCRIPT_AXIS` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_mcq_axis.py`
+- `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, `MATCHING_PROMPT` →
+  `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/prompts/<same filename>`
+
+Detect the runtime environment once, at the start of the session, and substitute consistently
+for the remainder of this skill's execution. Do not mix conventions mid-session. `${CLAUDE_PLUGIN_ROOT}`
+is Claude Code's documented plugin-root token; `${CLAUDE_SKILL_DIR}` is a hosted-sandbox token and
+is not confirmed to resolve under Claude Code — do not substitute it here.
+
+The `python` in `# Invoke via: python [SCRIPT_TYPE]` names whichever working Python launcher the
+host environment provides. If a bare `python` invocation fails (on Windows it is commonly shadowed
+by a non-functional Microsoft Store alias), use the environment's actual launcher — e.g.
+`uv run python [SCRIPT_TYPE]` — rather than accepting the script-failure fallbacks in
+REQ-MCQ-E-002 / REQ-MCQ-E-003. Those fallbacks exist for genuine script errors; silently taking
+them on every trial because the interpreter is unreachable would defeat randomized type and axis
+selection entirely.
+
+Every reference to these paths in the rest of this file is by constant name (`SCRIPT_TYPE`,
+`MCQ_PROMPT`, …), not by literal path, so this note is the only place the substitution is needed.
+
 ---
 
 ## Active Constraints
