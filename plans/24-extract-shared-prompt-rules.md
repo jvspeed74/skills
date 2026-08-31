@@ -1,5 +1,40 @@
 # Plan: Extract shared rule text and axis definitions into a reference doc (#24)
 
+> **ORCHESTRATOR AMENDMENT, 2026-08-30 — read before using this document.**
+>
+> This plan is **correct within the scope it was given, and that scope was wrong.** Three
+> corrections, all errors in the issue this plan was written against, not in the plan:
+>
+> 1. **The response-protocol deferral rested on a false premise.** Issue #24 deferred
+>    `<correct-response-protocol>`, `<incorrect-response-protocol>` and `<evaluation-framework>`
+>    on the grounds that they held doctrine-critical text #9 had just landed. Diffing
+>    `5f7cf72`→`c687943` shows #9 left all four response protocols **byte-identical** — it added
+>    the `explanation-baking` step and touched only `output` and `generation-cadence`. The
+>    deferral cost ~2,300 tokens of achievable saving for no reason. The 7 BLOCKED verdicts
+>    (S-04, S-05, S-06, and the blocked halves of S-13, S-14, S-15, S-16) should be re-read
+>    without that constraint.
+> 2. **Scope is now all 9 sections at ≥0.80 word-similarity, regardless of container** —
+>    `generation-cadence`, `after-explanation`, `trial-numbering`, `axis-identification`,
+>    `no-nudge`, `scenario-freshness`, `abstraction-boundary`, `banned-in-stems`,
+>    `domain-anchoring`. Achievable saving **~3,473 tokens (6.1%)**, not the 1,155 (2.0%) this
+>    plan computes under the old boundary, and not the 16,191 (28%) the issue originally
+>    claimed — that figure conflated duplicated *mass* with *savings*, since one canonical copy
+>    is still paid.
+> 3. **#24 is now a sub-issue of Feature A (#6)**, not standalone. This plan's OQ-1/OQ-2/OQ-3
+>    correctly identified that nothing loads a fifth file today — `SKILL.md` has no Skill-tool
+>    call anywhere and each prompt asserts self-sufficiency. That is an architectural blocker,
+>    not a scoping detail, and #6 builds the loading contract as its core work. Those three
+>    open questions are therefore **resolved by deferral**: #6 answers them.
+>
+> **Retained in full and independently verified:** the per-section similarity table. A separate
+> measurement pass reproduced every score within ±0.05. In particular `judgment-axes` at ~0.20
+> is confirmed as four genuine definition sets, not one rule typed four times, and stays 4-way.
+> The finding that ~70% of the measured surface is real type-specific content stands.
+>
+> This plan's `domain-anchoring` analysis surfaced a live defect, now tracked as **#26** —
+> Step I4 focus areas are honored by ORDERING/MATCHING and silently ignored by MCQ/MSQ. #26
+> blocks `domain-anchoring`'s hoist.
+
 **Status:** Planned — stage 1 only. **Not approved for implementation.** Nine open questions
 are unresolved; four of them are blockers.
 **Date:** 2026-08-30
