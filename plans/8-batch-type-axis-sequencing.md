@@ -1,9 +1,9 @@
 # Plan — C1: Batch type/axis sequencing (#8)
 
-**Status:** Planning. Not implemented. Stage 2 (implementation) is gated on an explicit execute
-signal and on the open questions below.
-**Parent:** `plans/5-frontload-question-generation.md` (Feature C, #5) — approved. Its artifact
-schema, two-pass draw decision, and REQ-C-001…011 are binding and are not revisited here.
+**Status:** Implemented. All 10 open questions resolved by the coordinator before stage 2; see §8.
+**Parent:** `plans/5-frontload-question-generation.md` (Feature C, #5) — approved, **as amended by
+PR #21** (`docs/5-schema-amendment`), whose Amendments section wins on conflict. Its artifact
+schema, two-pass draw decision, and REQ-C-001…015 are binding and are not revisited here.
 **Branch:** `feat/8-batch-type-axis-sequencing`
 **Target file:** `mcq-probe/skills/mcq-probe-0-router/SKILL.md` (single file; the split is #6).
 
@@ -38,7 +38,7 @@ grades against a stored key, and assembles the breakdown from stored explanation
 | Breakdown prose | Authored live, per trial, after the learner answers | Assembled from stored atoms; delivery authors no new rationale and reads no generation prompt (REQ-C-010) |
 | Batch artifact | n/a | In-context only. No path constant, no writer, no file — #7 persists it later |
 | First-trial latency | ~1 trial of generation | ~`BATCH_SIZE` trials of generation. Announced, never silent (REQ-C-011) |
-| `SKILL.md` length | 785 lines | Grows; exact delta unmeasured until stage 2 |
+| `SKILL.md` length | 785 lines, ~8.9k tokens on-invoke | 953 lines, ~11.4k tokens (+168 lines, ~+2.5k) |
 | Difficulty invariant | `CLAUDE.md`, enforced by the per-trial internal-validation checklist | **Unchanged.** Checklist runs per slot, inside pass 2, before the slot enters the artifact |
 
 ### Seam-map verification
@@ -89,8 +89,9 @@ Three concrete defects in the current Trial Loop block Feature C:
 
 ## 3. Design decisions
 
-Every row is inherited from the parent plan, the issue body, or the current file — none is
-originated here. Genuine forks are in §8, unresolved.
+Every row is inherited from the parent plan (as amended by PR #21), the issue body, the
+coordinator's resolutions, or the current file — none is originated here. The forks that produced
+the lower rows are recorded with their resolutions in §8.
 
 | Decision | Resolution | Source |
 |---|---|---|
@@ -109,6 +110,16 @@ originated here. Genuine forks are in §8, unresolved.
 | Announcement | The Generation Phase opens with a learner-visible announcement; generation is never silent | REQ-C-011; FM-C-5 |
 | Difficulty invariant | Untouched. The per-slot internal-validation checklist in each generation prompt still gates every slot, and runs before the slot is written to the artifact. This issue moves *when* work happens, never *what a distractor must satisfy* | `CLAUDE.md`; parent FM-C-1 |
 | Split-friendliness | Both new sections start on `##` headings and no section is split across the Generation/Delivery boundary, preserving #18's seam-map property | `plans/18-plugin-bundle-restructure.md` §Seam map |
+| Wire format | **JSON**, one object per trial, in a fenced block, internal-only | Parent A-2 / REQ-C-013 |
+| `explanation` shape | Amended: `key_survival` is type-specific (1–7 statements); each distractor entry carries `viability_account`; `near_duplicate_differentiators` is a list; `near_duplicate_of` names a **choice** label and may be a correct-answer label | Parent A-3, A-4, A-5, A-6 |
+| Coverage rule | "Every choice **not in the key**" — the original "every unselected choice for MSQ" was learner-relative and unknowable at generation | Parent A-7 |
+| Delivery-time fields | The trial entry carries `grade` and `gap_summary`, written after the learner answers, null at generation | Parent A-8 (raised by this issue's planning pass) |
+| Prompt `output` step | **Suppressed during generation**, not amended. #9 leaves it presenting, so the skill still runs one-at-a-time after #9 alone; #8's Generation Phase captures what it would have presented and the Delivery Loop presents | REQ-C-015 |
+| Atoms-absent fallback | The Delivery Loop authors the breakdown live from the Response Protocol prose when a slot carries no atoms. This is what makes #8 safe to merge before #9 | REQ-C-015 |
+| Response Protocol edit form | **Preamble, not rewrite.** An atom-consumption preamble plus a step→field map; the eight blocks stay as the fallback path | Coordinator, OQ-4 |
+| Announcement | Announce without a count — the batch size is a trial number by another name, and `SKILL.md`'s standing constraint forbids showing trial numbers | Coordinator, OQ-8; REQ-C-011 |
+| Trial numbering | Report numbering is session-global, `batch_index × BATCH_SIZE + trial_index + 1`. `trial_index` stays batch-local | Coordinator, OQ-10 |
+| Anti-batching prompt rules | **Not this issue's.** Assigned to #9 as REQ-C-012 (8 sites). Assume removed; do not touch `prompts/` | Parent A-1 / REQ-C-012 |
 
 ---
 
@@ -122,8 +133,9 @@ Owned by this issue, verbatim from the parent plan.
 | REQ-C-002 | Pass 1 draws type+axis for all `BATCH_SIZE` slots, honoring the I5/I6 gates and the no-reuse-within-session axis rule | `SKILL.md` — Generation Phase, pass 1 |
 | REQ-C-003 | Pass 2 generates content per slot; ordering/matching axis refit runs here, re-drawing only from axes assigned to no other slot, up to 3 attempts, then hold-and-reconstruct | `SKILL.md` — Generation Phase, pass 2; Error Handling REQ-ORD-E-003 / REQ-MAT-E-003 |
 | REQ-C-004 | A rejected axis is not added to the session's used-axes list; it stays available to other slots | `SKILL.md` — Generation Phase, pass 2; Active Constraints |
-| REQ-C-010 | The Delivery Loop presents, parses, grades against the stored key, and assembles the breakdown from stored atoms — it authors no new rationale and reads no generation prompt | `SKILL.md` — new `## Delivery Loop` + Response Protocol (form of edit is OQ-4) |
-| REQ-C-011 | Batch generation is announced ("Preparing your trials…"), never silent | `SKILL.md` — Generation Phase opening |
+| REQ-C-010 | The Delivery Loop presents, parses, grades against the stored key, and assembles the breakdown from stored atoms — it authors no new rationale and reads no generation prompt | `SKILL.md` — new `## Delivery Loop` + Response Protocol preamble |
+| REQ-C-011 | Batch generation is announced ("Preparing your trials…"), never silent | `SKILL.md` — Generation Phase G1 |
+| REQ-C-015 | Both PRs independently safe: #8's Generation Phase suppresses the prompts' `output` step during generation and presents from the Delivery Loop; #8's Delivery Loop falls back to authoring rationale live when atoms are absent | Shared with #9. `SKILL.md` — G5 rule 1; Response Protocol preamble fallback |
 
 **Non-goals, explicit.** No edit to any file under `prompts/` (#9). No edit to
 `mcq-probe/.claude-plugin/plugin.json` — the version bump is the orchestrator's, at merge time. No
@@ -136,7 +148,8 @@ checklist.**
 
 ## 5. Line-range disposition in `SKILL.md`
 
-Line numbers are current (785-line file), pre-edit.
+Line numbers are pre-edit (785-line file). As built, the file is **953 lines**, ~11.4k tokens
+(from ~8.9k measured at #18) — a **+168 line / ~+2.5k token** on-invoke delta.
 
 | Lines | Section | Disposition |
 |---|---|---|
@@ -149,7 +162,7 @@ Line numbers are current (785-line file), pre-edit.
 | 130–192 | Intake I3, I4 | **Untouched** |
 | 193–232 | Intake I5, I6 | **Two cross-reference edits only.** L208 and L226 both read "see Trial Loop, Step 2" and must repoint to the Generation Phase's pass-2 refit step. The determinations themselves are untouched |
 | **236–358** | **`## Trial Loop`** | **Replaced.** Becomes `## Generation Phase` + `## Delivery Loop`. Step-level fate: step 1 (240–256) → pass 1 type draw; step 2 (258–304) → split, base draw to pass 1 and both refit blocks to pass 2; step 3 (306–312) → Generation Phase prompt load, "Trial 1 only" → "once, before pass 2"; step 4 (314–317) → pass 2 construction, with presentation removed; steps 5–7 (319–355) → Delivery Loop, step 7's record split between the artifact (generation-time fields) and the delivery-time result record (OQ-5) |
-| 359–513 | `## Response Protocol`, 8 blocks (MCQ/MSQ/Ordering/Matching × correct/incorrect) | **Rewritten to consume atoms** under REQ-C-010. Each numbered step maps to one artifact field: "state the axis" → `explanation.axis_statement`; "why the correct answer survives" → `explanation.key_survival`; "address each wrong answer individually" → `explanation.distractor_failures[<label>].failure`; "name the orthodox-but-wrong choice" → `.orthodox_but_wrong`; "explain the near-duplicate differentiator" → `.near_duplicate_of` + `explanation.near_duplicate_differentiator`. The *form* of this edit is OQ-4. **Coverage, ordering, and no-nudge discipline are preserved exactly** — the atoms cover every wrong choice by the parent's coverage rule |
+| 359–513 | `## Response Protocol`, 8 blocks (MCQ/MSQ/Ordering/Matching × correct/incorrect) | **Eight blocks untouched.** A preamble — "Assembling the breakdown from stored atoms" — is inserted ahead of them carrying the step→field map and the atoms-absent fallback (OQ-4: preamble, not rewrite). The blocks remain verbatim and serve as the fallback prose REQ-C-015 requires. **Coverage, ordering, and no-nudge discipline are therefore preserved by construction** |
 | 517–531 | `## Tangent Handling` | **Untouched.** REQ-ORD-F-015 / REQ-MAT-F-015 re-presentation stability becomes structurally guaranteed once the trial is fixed in the artifact — a free strengthening, requiring no edit |
 | 533–566 | `## Analysis Phase` | **Untouched**, conditional on OQ-5. Its inputs (`grade`, `gap_summary`) must exist wherever OQ-5 lands them |
 | 569–726 | `## Report Format` | **Untouched.** Axis Coverage still reads finally-used axes; Trial Log still reads `probe_target` |
@@ -159,15 +172,30 @@ Line numbers are current (785-line file), pre-edit.
 | 768–775 | REQ-MAT-E-002 | **Untouched** |
 | 777–785 | REQ-MAT-E-003 | **Rewritten** — same change as REQ-ORD-E-003 |
 
+### As-built seam map (for #6)
+
+Post-edit line ranges, 953-line file. Boundaries fall on `##` headings; no section spans a phase.
+
+| Target phase | Sections | Lines |
+|---|---|---|
+| `mcq-probe-0-router` (#11) | Frontmatter, File Path Constants, Active Constraints, Intake I1–I6 | 1–242 |
+| `mcq-probe-1-generation` (#12) | Batch Artifact, Generation Phase G1–G5 | 243–429 |
+| `mcq-probe-2-delivery` (#13) | Delivery Loop D1–D5, Response Protocol (preamble + 8 blocks), Tangent Handling | 430–694 |
+| `mcq-probe-3-analysis` (#14) | Analysis Phase, Report Format, Error Handling | 695–953 |
+
+The Batch Artifact section is the contract between phases 1 and 2. Under #6's split it must be
+readable by both — duplicate it into both files, or hoist it into `mcq-probe-utils`. Flagged for
+#6; not resolved here.
+
 ---
 
 ## 6. Failure modes
 
 | ID | Mode | Trigger | Outcome | Accepted? |
 |---|---|---|---|---|
-| FM-8-1 | **Prompt cadence rules override the Generation Phase** | All four prompts are loaded in full and each says batching is "not optional — structurally required" to avoid; `SKILL.md` says the opposite | The model generates one trial at a time anyway. #8 merges, changes nothing at runtime, and #9/#10 are built on a seam that does not hold | **No.** Blocking — OQ-1. Not fixable inside #8's file scope |
-| FM-8-2 | **Pass 2 presents while constructing** | Every prompt's construction sequence ends in a `<step name="output">` that says "Present the question to the learner… Stop. Wait." (MCQ step 9, MSQ step 7, ORD step 8, MAT step 9) | The entire batch is dumped to the learner before trial 1, or generation stalls waiting for a response that will not come. Session destroyed | **No.** The Generation Phase must state that the output step's content is *captured into the artifact, not emitted*. Whether that override is sufficient against the prompt text is OQ-2 |
-| FM-8-3 | **Atoms absent at delivery** | #8 merges before #9; the artifact's `explanation` block is unpopulated because no prompt emits it yet | Delivery either halts or silently re-authors rationale live — the reasoning cost never moves, invisibly | **No.** Needs a defined interim behavior — OQ-3 |
+| FM-8-1 | **Prompt cadence rules override the Generation Phase** | All four prompts are loaded in full and each says batching is "not optional — structurally required" to avoid; `SKILL.md` says the opposite | The model generates one trial at a time anyway. #8 merges, changes nothing at runtime, and #9/#10 are built on a seam that does not hold | **No — closed out of #8's scope.** Assigned to #9 as REQ-C-012 (8 sites). Until #9 lands, #8 is inert but harmless: the fallbacks below keep the skill correct one-trial-at-a-time |
+| FM-8-2 | **Pass 2 presents while constructing** | Every prompt's construction sequence ends in a `<step name="output">` that presents and waits | The entire batch is dumped to the learner before trial 1, or generation stalls waiting for a response that will not come. Session destroyed | **No.** G5 rule 1 suppresses the `output` step during generation and captures what it would have presented — REQ-C-015. Referenced **by name**, never by step number: #9 inserts the atom step between `internal-validation` and `output`, which renumbers `output` in all four prompts |
+| FM-8-3 | **Atoms absent at delivery** | #8 merges before #9; the artifact's `explanation` block is unpopulated because no prompt emits it yet | Delivery either halts or silently re-authors rationale live — the reasoning cost never moves, invisibly | **Accepted, bounded.** The Response Protocol preamble defines the fallback explicitly: author the step live from the protocol prose, never skip a step or shorten coverage — REQ-C-015. This is what makes #8 safe to merge in either order |
 | FM-8-4 | Batch artifact rendered to the learner | Generation "produces" an artifact and produced things default to visible | Full answer key plus every rationale leaked before trial 1 | **No.** Parent FM-C-2. New Active Constraint mirroring `probe_target`'s existing never-reveal discipline |
 | FM-8-5 | Refit has zero candidate axes | `BATCH_SIZE` ≥ 9 — every axis is assigned to some slot, so "assigned to no other slot" is the empty set | Refit degenerates to 0 attempts rather than 3; slot goes straight to hold-and-reconstruct | **Accepted.** Parent FM-C-4; hold-and-reconstruct is the existing terminal behavior and always succeeds. Reachable at N=9 today |
 | FM-8-6 | Axis-uniqueness relaxation fires silently in pass 1 | `select_mcq_axis.py` relaxes to blocking only the last-used axis once all 9 are excluded | Duplicate axes within a batch | **Accepted for #8** — unreachable at `BATCH_SIZE` ≤ 9, and N is capped 1–9 at intake I2. Becomes live at #4's `BATCH_SIZE` = 10. Flagged for #4 |
@@ -192,25 +220,32 @@ Line numbers are current (785-line file), pre-edit.
 
 ---
 
-## 8. Open questions
+## 8. Open questions — all resolved
 
-None resolved. Every one is a fork the inputs do not settle; per the issue brief, none is
-resolved unilaterally.
+Raised by this planning pass, resolved by the coordinator before implementation. Seven fed the
+parent plan's Amendments section (PR #21); OQ-1 and OQ-5 became REQ-C-012 and amendment A-8.
 
-| # | Question | Blocker for? |
+| # | Question | Resolution |
 |---|---|---|
-| OQ-1 | All four generation prompts forbid exactly what Feature C requires — `<generation-cadence>` ("Do NOT pre-generate all trials before the learner has responded") at MCQ:36, MSQ:34, ORD:47, MAT:57, and `<trial-sequence-rules><rule id="1-at-a-time">` ("not optional — structurally required") at MCQ:531, MSQ:535, ORD:701, MAT:775. Who removes or amends them — #9, a new issue, or the orchestrator at merge? Neither #8's nor #9's requirement set (REQ-C-005/006/007) mentions them | **Feature C functioning at all** (FM-8-1). Blocks #8's acceptance criteria being verifiable |
-| OQ-2 | Each prompt's construction sequence terminates in a `<step name="output">` that presents and waits (MCQ 9, MSQ 7, ORD 8, MAT 9). Does `SKILL.md`'s Generation Phase override it ("capture, do not emit"), or does #9 amend the output steps under REQ-C-007? | FM-8-2; the wording of pass 2's construction step |
-| OQ-3 | #8 and #9 merge independently. What does the Delivery Loop do in the window where the artifact has no `explanation` atoms — halt, or author live? Or must #8 and #9 merge together? | Merge order; whether `main` is functional between the two PRs (FM-8-3) |
-| OQ-4 | Does #8 rewrite the eight Response Protocol blocks (359–513) in place, or leave them and prepend a single atom-consumption preamble plus a step→field mapping table? The first is ~155 lines rewritten and duplicates the atom names eight times; the second is smaller but leaves eight blocks whose imperative voice ("Explain why…") still reads as author-now | REQ-C-010's blast radius; #6's split of Response Protocol into `mcq-probe-2-delivery` |
-| OQ-5 | The parent artifact schema has no `grade` and no `gap_summary` field, but the Analysis Phase and the report's Trial Log and Gap Inventory require both. Does the Delivery Loop write results back into the batch artifact's trial entries (extending the schema, which #7 persists verbatim), or keep a separate delivery-side result record alongside it? | Analysis Phase input; #7's persisted shape; today's Trial Loop step 7 record schema |
-| OQ-6 | `probe_target` is an artifact field, so it must be authored at generation time — but REQ-C-005 has the prompts emitting only `explanation` alongside stem/choices/key, and no prompt's output step emits `probe_target` today. Does #8's pass 2 author it in `SKILL.md`, or does #9 add it to the prompt outputs? | Cross-PR consistency; whether §5's Intake/Delivery edits are complete |
-| OQ-7 | Does the Generation Phase reserve an explicitly named, numbered step for #10's consistency pass (a documented no-op in #8), or does #10 insert its own? A reserved step reduces merge friction; a no-op step in shipped instructions is the kind of stub `plans/18-plugin-bundle-restructure.md` FM-3 rejected | #10's merge friction |
-| OQ-8 | REQ-C-011's announcement wording and cadence: one message at Generation Phase start, or per-slot progress? And may it state the count ("Preparing your 5 trials…") given the standing constraint "Do not display trial numbers, scores, or running totals to the learner during the trial loop" (L79)? | Announcement text; possible amendment of L79's scope |
-| OQ-9 | Is silent loss of the in-context artifact to context compaction mid-session (FM-8-9) accepted until #7, or does #8 owe a detection/regeneration behavior? Parent FM-C-7 accepts context *pressure* but does not address artifact *loss* | Nothing in #8 if accepted; informs #7's priority |
-| OQ-10 | `trial_index` is "position within the batch"; the report's Trial Log `#` is a session-global trial number. Identical for a bounded one-batch session, divergent under #4. Does #8 record the mapping now, or leave it to #4? | #4 only. Cheap to record now |
+| OQ-1 | All four generation prompts forbid exactly what Feature C requires — `<generation-cadence>` at MCQ:36, MSQ:34, ORD:47, MAT:57 and `<rule id="1-at-a-time">` at MCQ:531, MSQ:535, ORD:701, MAT:775 — and the text was owned by neither sub-issue | **Not #8's.** Assigned to #9 as **REQ-C-012**, 8 sites. Removal is safe: the rule protects adapting later trials to earlier results, a capability this skill does not have (`SKILL.md`, "Run all N trials regardless of intermediate performance"); the one real cross-trial coupling is axis exclusion, which the two-pass draw preserves exactly. Do not touch `prompts/` |
+| OQ-2 | Prompt `output` step presents and waits — `SKILL.md` override or #9 amendment? | **`SKILL.md` override — REQ-C-015.** #9 *leaves* the `output` step presenting so the skill still runs correctly one-at-a-time after #9 alone. #8's G5 rule 1 suppresses it during generation and captures its content; the Delivery Loop presents |
+| OQ-3 | What delivery does in the window where #8 has merged and #9 has not | **Fall back to live authoring — REQ-C-015.** The Response Protocol preamble defines it. Both PRs are independently safe in either merge order |
+| OQ-4 | Rewrite the eight Response Protocol blocks, or add a preamble plus a step→field map? | **Preamble.** The eight blocks are untouched and become the fallback path OQ-3 requires |
+| OQ-5 | The schema had no `grade` and no `gap_summary`, which the Analysis Phase, Trial Log and Gap Inventory all need | **Correct — parent error, fixed as amendment A-8.** The trial entry now carries delivery-time `grade: correct \| incorrect` and `gap_summary: str\|null`, written after the learner answers. #7 persists the whole entry |
+| OQ-6 | Who authors `probe_target` | **#8, in Pass 2**, where it lives today. Moving it to the prompts would widen #9 for no gain |
+| OQ-7 | Reserve a named step for #10's consistency pass? | **No stub.** #10 inserts its own — consistent with `plans/18-plugin-bundle-restructure.md` FM-3 |
+| OQ-8 | Announcement cadence and whether it may state the count | **Announce without a count.** The batch size is a trial number by another name. The standing constraint was widened to "trial numbers, scores, running totals, or the batch size" |
+| OQ-9 | Context compaction silently destroying the in-context artifact mid-session | **Accepted risk, recorded** — FM-8-9. #7's persistence is the structural fix; none is available inside #5 |
+| OQ-10 | `trial_index` vs the report's session-global `#` | **`trial_index` is batch-local.** Report numbering is `batch_index × BATCH_SIZE + trial_index + 1`. Recorded in the Delivery Loop; diverges only under #4 |
 
----
+### Carried forward, not acted on
+
+| Item | Owner |
+|---|---|
+| FM-8-5 — refit drawable set is empty once every axis is assigned (reachable at N=9); degenerates to 0 attempts, straight to hold-and-reconstruct | Recorded in `SKILL.md` G5 and REQ-ORD/MAT-E-003. No action |
+| FM-8-6 — `select_mcq_axis.py` relaxes to blocking only the last-used axis once all 9 are excluded, allowing duplicate axes in a window | **#4**, at `BATCH_SIZE` = 10 |
+| Batch Artifact section is the phase-1/phase-2 contract and must be readable by both after the split | **#6** |
+| Parent open question 1 / R-8-6 — batch context cost. Parent A-9 remeasured prompts at 58.9k and a 10-trial batch at ~7.5k–22.5k, threshold raised to 25k | **#4**'s window-size input |
 
 ## 9. Files touched
 
@@ -226,32 +261,35 @@ resolved unilaterally.
 
 ## 10. Implementation order
 
-1. **Resolve OQ-1 through OQ-6 with the orchestrator.** OQ-1 and OQ-3 are hard blockers — an
-   implementation that is textually correct and behaviorally inert is worse than none, because
-   #9 and #10 build on it.
-2. Rewrite **Active Constraints** (67–81): retime the prompt-load, type-draw, axis-draw and refit
-   bullets; delete L76; retime the probe-target bullet; add the never-render and announcement
-   bullets.
-3. Add the **batch artifact schema** block to `SKILL.md`, field-for-field from the parent plan,
-   with the never-render statement attached.
-4. Write **`## Generation Phase`**: announcement → `BATCH_SIZE = N` → prompt load (halt on
-   unreadable, REQ-MCQ-E-001) → pass 1 (per-slot type draw with the I5/I6 exclude string, per-slot
-   axis draw with the assigned-axes exclude list) → pass 2 (per-slot construction, ordering/matching
-   refit, per-slot internal-validation, `probe_target`, write slot to artifact).
-5. Write **`## Delivery Loop`**: per trial, present from the artifact → wait → parse → grade
-   against the stored `key` → Response Protocol → record the result. State explicitly: authors no
-   new rationale, reads no generation prompt, abandons unpresented slots on an early report request.
-6. Repoint the **I5/I6 cross-references** (L208, L226) and add `BATCH_SIZE` at I2.
-7. Rework the **Response Protocol** per the OQ-4 resolution, verifying each numbered step maps to
-   exactly one artifact field.
-8. Reword **Error Handling** REQ-MCQ-E-002/E-003 (per slot) and REQ-ORD-E-003 / REQ-MAT-E-003
-   (pass-2 refit, "assigned to no other slot", "other slots" not "later trials").
-9. **Verification gate — behavioral, not textual.** Run a bounded session end to end and confirm:
-   (a) nothing is presented until the whole batch is generated; (b) the announcement fires; (c) no
-   artifact content leaks; (d) axes are unique across slots and refit rejections did not consume
-   any; (e) the breakdown for a wrong answer covers every distractor. This is the FM-8-1 / FM-8-2
-   check and it cannot be satisfied by reading the diff.
-10. **Measure** the full-batch artifact's token cost and report it — this closes parent open
-    question 1 (R-8-6).
-11. Record a fresh **seam map** (post-edit line ranges for router / generation / delivery /
-    analysis) for #6.
+Steps 1–8 executed. Step 9 is a post-merge gate; it cannot run against `SKILL.md` alone.
+
+1. ~~Resolve OQ-1 through OQ-10 with the coordinator.~~ Done — §8. OQ-1 reassigned to #9 as
+   REQ-C-012; OQ-5 became parent amendment A-8.
+2. **Active Constraints** rewritten: prompt-load, type-draw, axis-draw and refit bullets retimed
+   to the Generation Phase; the "Generate one trial at a time" bullet **deleted**; probe-target
+   bullet retimed to Pass 2; never-render, rejected-axis, delivery-assembly and batch-first
+   bullets added; the display constraint widened to cover the batch size.
+3. **`## Batch Artifact`** added — JSON, field-for-field from the amended parent schema, with the
+   never-render statement, the type-specific shape table, and the corrected coverage rule.
+4. **`## Generation Phase`** written — G1 announce (no count) → G2 `BATCH_SIZE` → G3 prompt load
+   (halt on unreadable) → G4 Pass 1 (per-slot type draw with the session-constant I5/I6 exclude
+   string; per-slot axis draw excluding earlier slots' axes) → G5 Pass 2 (construction governed by
+   the type's prompt, with three orchestration rules: `output` suppressed, refit batch-scoped,
+   validation gates the write; then probe target, then write).
+5. **`## Delivery Loop`** written — D1 present verbatim → D2 grade against the stored key → D3
+   deliver the breakdown → D4 record `grade`/`gap_summary` → D5 advance, abandoning undelivered
+   slots on an early report request.
+6. **I5/I6 cross-references** repointed to "Generation Phase, Pass 2"; `BATCH_SIZE = N` added at I2.
+7. **Response Protocol preamble** added — step→field map plus the atoms-absent fallback. The eight
+   protocol blocks are untouched.
+8. **Error Handling** reworded — E-002/E-003 now per slot in Pass 1; ORD/MAT E-003 now describe the
+   Pass-2 batch-scoped re-draw; E-001's halt located at G3.
+9. **Verification gate — behavioral, not textual, and post-merge.** Bump `plugin.json`, re-sync the
+   plugin cache (#18 OQ-1), restart, then run a bounded session and confirm: (a) nothing is
+   presented until the whole batch is generated; (b) the announcement fires and states no count;
+   (c) no artifact content leaks; (d) axes are unique across slots and refit rejections consumed
+   none; (e) the breakdown for a wrong answer covers every choice not in the key. **(a) cannot pass
+   until #9's REQ-C-012 lands** — until then the prompts still forbid batching. This gate cannot be
+   satisfied by reading the diff.
+10. **Measure** a full-batch artifact against parent A-9's raised 25k threshold — #4's window-size
+    input (R-8-6).
