@@ -13,7 +13,7 @@ argument-hint: "[concept]"
 
 A self-contained evaluation tool. The learner specifies a concept; the skill
 runs N trials against it — a mix of multiple-choice (MCQ), multiple-select (MSQ),
-ordering (ORD), and matching (MAT) — gives full breakdowns after every response,
+and ordering (ORD) — gives full breakdowns after every response,
 then produces a diagnostic Markdown report. There is no coaching, no nudging, and no
 routing to other skills. The output is an unvarnished picture of what the learner
 does and does not understand.
@@ -33,17 +33,16 @@ SCRIPT_AXIS = /mnt/skills/user/mcq-probe/scripts/select_mcq_axis.py
 MCQ_PROMPT      = /mnt/skills/user/mcq-probe/prompts/MCQ_GENERATION_PROMPT.md
 MSQ_PROMPT      = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
 ORDERING_PROMPT = /mnt/skills/user/mcq-probe/prompts/ORDERING_GENERATION_PROMPT.md
-MATCHING_PROMPT = /mnt/skills/user/mcq-probe/prompts/MATCHING_GENERATION_PROMPT.md
 ```
 
-**Environment note:** The six paths above are hosted-sandbox (Claude.ai Skills) conventions,
+**Environment note:** The five paths above are hosted-sandbox (Claude.ai Skills) conventions,
 where they are correct and must be used as written. When this skill runs under Claude Code as
-part of the `mcq-probe` plugin bundle, resolve all six relative to `${CLAUDE_PLUGIN_ROOT}`
+part of the `mcq-probe` plugin bundle, resolve all five relative to `${CLAUDE_PLUGIN_ROOT}`
 instead:
 
 - `SCRIPT_TYPE` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_question_type.py`
 - `SCRIPT_AXIS` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_mcq_axis.py`
-- `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, `MATCHING_PROMPT` →
+- `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT` →
   `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/prompts/<same filename>`
 
 Detect the runtime environment once, at the start of the session, and substitute consistently
@@ -68,11 +67,10 @@ Every reference to these paths in the rest of this file is by constant name (`SC
 
 These are binding. They do not yield to judgment calls.
 
-- Load `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT` on Trial 1, before any trial is generated. If any is unreadable: halt — REQ-MCQ-E-001 / REQ-MAT-E-001.
-- Call `SCRIPT_TYPE` before every trial to determine the question type (mcq, msq, ordering, or matching). If Step I5 (procedural determination) determined the concept is non-procedural, include `ordering` in that call's `--exclude`. If Step I6 (matchable determination) determined the concept is non-matchable, include `matching` in that call's `--exclude` — REQ-ORD-F-010, REQ-MAT-F-010. These excludes combine (comma-joined) when both gates fire; if that leaves only `mcq`/`msq`, the draw proceeds from those.
+- Load `MCQ_PROMPT`, `MSQ_PROMPT`, and `ORDERING_PROMPT` on Trial 1, before any trial is generated. If any is unreadable: halt — REQ-MCQ-E-001.
+- Call `SCRIPT_TYPE` before every trial to determine the question type (mcq, msq, or ordering). If Step I5 (procedural determination) determined the concept is non-procedural, include `ordering` in that call's `--exclude` — REQ-ORD-F-010; the draw then proceeds from `mcq`/`msq`.
 - Call `SCRIPT_AXIS` before every trial. Pass all axes used so far as `--exclude`, in order used.
 - For an ordering trial, if the assigned axis cannot force the trial's order, re-draw via `SCRIPT_AXIS` (excluding used + rejected axes), up to 3 attempts; on exhaustion, hold the axis and reconstruct the scenario. Never substitute the trial type — REQ-ORD-E-003.
-- For a matching trial, if the assigned axis cannot make the trial's grid projection-resolvable, re-draw via `SCRIPT_AXIS` (excluding used + rejected axes), up to 3 attempts; on exhaustion, hold the axis and reconstruct the case-set. Never substitute the trial type — REQ-MAT-E-003.
 - Generate one trial at a time. Present it. Wait for response. Evaluate. Then call the scripts for the next trial's type and axis.
 - After each trial: generate the **Probe Target** descriptor internally (≤6 words). Never reveal it during the trial — it appears only in the report.
 - Run all N trials regardless of intermediate performance. No early termination.
@@ -83,7 +81,7 @@ These are binding. They do not yield to judgment calls.
 
 ## Intake Phase
 
-Execute steps I1 through I6 in order. Do not batch them.
+Execute steps I1 through I5 in order. Do not batch them.
 
 ### Step I1 — Concept (conversational)
 
@@ -160,7 +158,7 @@ Invoke AskUserQuestion with:
 ```
 
 "Other" captures any custom domain. Store as DOMAIN. Pass to MCQ_PROMPT, MSQ_PROMPT,
-ORDERING_PROMPT, and MATCHING_PROMPT for stem construction.
+and ORDERING_PROMPT for stem construction.
 
 ### Step I4 — Specific focus (AskUserQuestion)
 
@@ -201,35 +199,10 @@ learner.
 Store the result as `PROCEDURAL` (yes/no) — REQ-ORD-F-010.
 
 - If **no**: `ordering` is excluded from the type draw for the remainder of the
-  session. Call `SCRIPT_TYPE` with `--exclude ordering` (or `--exclude ordering,matching`
-  if Step I6 also excludes matching) on every trial this session, so `ordering` is
-  never drawn.
+  session. Call `SCRIPT_TYPE` with `--exclude ordering` on every trial this session, so
+  `ordering` is never drawn.
 - If **yes**: no exclusion is applied at intake on `ordering`'s account. A trial-level
   axis re-draw may still apply once an `ordering` trial is drawn — see Trial Loop, Step 2.
-
-### Step I6 — Matchable determination (internal)
-
-Once the concept is defined (Step I1), determine once whether it affords **multiple
-confusable cases along a dimension** — at least three distinct conditions, symptoms,
-sub-types, or instances that each map to a distinct, cross-viable outcome. A flat
-concept (one definition, no case structure — nothing to discriminate between) does
-not afford this. This is an internal judgment call made by the orchestrator; do not
-ask the learner.
-
-Store the result as `MATCHABLE` (yes/no) — REQ-MAT-F-010.
-
-- If **no**: `matching` is excluded from the type draw for the remainder of the
-  session. Call `SCRIPT_TYPE` with `--exclude matching` (or `--exclude ordering,matching`
-  if Step I5 also excludes ordering) on every trial this session, so `matching` is
-  never drawn.
-- If **yes**: no exclusion is applied at intake on `matching`'s account. A trial-level
-  axis re-draw may still apply once a `matching` trial is drawn — see Trial Loop, Step 2.
-
-**Excludes combine.** `PROCEDURAL` = no and `MATCHABLE` = no are independent
-determinations and may both fire on the same concept (a flat, non-procedural concept).
-When both fire, pass both types in one comma-joined `--exclude` argument
-(`--exclude ordering,matching`) and the type draw proceeds from `mcq`/`msq` only —
-REQ-MAT-F-010.
 
 ---
 
@@ -244,15 +217,12 @@ Invoke:
 python SCRIPT_TYPE
 ```
 
-If Step I5 and/or Step I6 excluded a type (`PROCEDURAL` = no and/or `MATCHABLE` = no),
-invoke instead with the applicable type(s) comma-joined in `--exclude`:
+If Step I5 excluded `ordering` (`PROCEDURAL` = no), invoke instead with `--exclude ordering`:
 ```
 python SCRIPT_TYPE --exclude ordering
-python SCRIPT_TYPE --exclude matching
-python SCRIPT_TYPE --exclude ordering,matching
 ```
 
-- Exit code 0: use the printed type (`mcq`, `msq`, `ordering`, or `matching`) for this trial. Store as `QUESTION_TYPE`.
+- Exit code 0: use the printed type (`mcq`, `msq`, or `ordering`) for this trial. Store as `QUESTION_TYPE`.
 - Exit code non-zero: default to `mcq`. Log the fallback internally — REQ-MCQ-E-003.
 
 ### 2. Axis selection
@@ -285,35 +255,17 @@ Once the axis is settled (fit confirmed, or held after exhaustion), it is the
 axis-exclusion list (the `--exclude` argument on later trials) and the report's
 Axis Coverage.
 
-**Matching axis re-draw (REQ-MAT-E-003, REQ-MAT-F-016).** If `QUESTION_TYPE` is
-`matching`, confirm — per `MATCHING_PROMPT`'s axis-fit check — that the assigned axis
-can make this trial's grid projection-resolvable (a dense, cross-viable grid with a
-unique bijection). If it cannot:
-
-1. Re-draw: `python SCRIPT_AXIS --exclude [axes used so far this session, in order] + [axes rejected for this trial]`.
-2. A rejected axis is **not** added to the session's used-axes list — it stays
-   available to later trials. Track it as rejected only for this trial's re-draw
-   attempts.
-3. Repeat up to 3 re-draw attempts total for this trial.
-4. If all 3 attempts are exhausted without a fitting axis, hold the last-drawn axis
-   and reconstruct the case-set (per `MATCHING_PROMPT`) to one that axis can force.
-   Do not substitute the trial type.
-
-Once the axis is settled (fit confirmed, or held after exhaustion), it is the
-**finally-used axis** for this trial — it, and only it, enters the session's
-axis-exclusion list and the report's Axis Coverage.
-
 ### 3. Prompt load
 
-Trial 1 only: read `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT`.
+Trial 1 only: read `MCQ_PROMPT`, `MSQ_PROMPT`, and `ORDERING_PROMPT`.
 
-If any is unreadable: halt immediately — REQ-MCQ-E-001 / REQ-ORD-E-001 / REQ-MAT-E-001.
+If any is unreadable: halt immediately — REQ-MCQ-E-001 / REQ-ORD-E-001.
 
-Retain all four in context for all subsequent trials. Do not reload.
+Retain all three in context for all subsequent trials. Do not reload.
 
 ### 4. Trial construction and presentation
 
-Construct and present the trial per the construction sequence in `MCQ_PROMPT` (if `QUESTION_TYPE` is `mcq`), `MSQ_PROMPT` (if `QUESTION_TYPE` is `msq`), `ORDERING_PROMPT` (if `QUESTION_TYPE` is `ordering`), or `MATCHING_PROMPT` (if `QUESTION_TYPE` is `matching`).
+Construct and present the trial per the construction sequence in `MCQ_PROMPT` (if `QUESTION_TYPE` is `mcq`), `MSQ_PROMPT` (if `QUESTION_TYPE` is `msq`), or `ORDERING_PROMPT` (if `QUESTION_TYPE` is `ordering`).
 The assigned axis is fixed once settled per Step 2 — do not substitute further.
 
 ### 5. Wait
@@ -321,38 +273,31 @@ The assigned axis is fixed once settled per Step 2 — do not substitute further
 For MCQ: present **MCQ** on its own line, then the question stem and choices A–D. Stop. Wait for the learner's response.
 For MSQ: present **MSQ** on its own line, then the question stem and choices A–E, with the count in the closing prompt. Stop. Wait for the learner's response. Accept any common format (comma-separated, space-separated, written out). Parse as a set of letters — order does not matter.
 For Ordering: present **ORD** on its own line, then the task scenario, the pool with one label per line, and a closing prompt disclosing K (the number of steps to arrange) but not D (the number of distractors). Stop. Wait for the learner's response. Accept any common format (comma-separated, space-separated, arrow-separated, numbered list), case-insensitive. Parse as an **ordered** list of labels — order is significant. An out-of-pool label or a repeated label is invalid: ask the learner to resubmit; do not count the attempt — REQ-ORD-E-002.
-For Matching: present **MAT** on its own line, then the numeric prompt list (one prompt per line, labeled `1…n`), then the alpha response pool (one response per line, labeled `A…`), then a closing prompt disclosing the matching constraint: each prompt takes exactly one response, each response is used at most once, and some responses go unused. Both n (the prompt count) and m (the response count) are visible from the printed lists — this disclosure is intentional; unlike Ordering's hidden D, it does not leak which responses are unused. Stop. Wait for the learner's response. Accept common formats (`1-C`, `1:C`, `1C`, `1 → C`, comma- or newline-separated), case-insensitive — numeric prompt labels and alpha response labels are disjoint, so pair-token order is unambiguous. Parse as a set of n prompt→response pairs; the mapping must be injective (no prompt repeated, no response reused). A repeated prompt, a reused response, an out-of-range label, or a missing prompt is invalid: ask the learner to resubmit; do not count the attempt — REQ-MAT-E-002. A well-formed set that attaches a prompt to a distractor response is **valid and incorrect** — not a resubmit case.
 
 ### 6. Evaluate and deliver breakdown
 
-Apply the MCQ, MSQ, Ordering, or Matching response protocol (see below) based on
+Apply the MCQ, MSQ, or Ordering response protocol (see below) based on
 `QUESTION_TYPE`.
 For Ordering: correct iff the learner's ordered selected sequence exactly equals the
 correct sequence — the right steps, no distractors, none missing, exact order —
 REQ-ORD-F-007.
-For Matching: correct iff every one of the learner's n prompt→response pairs equals
-the key exactly — binary, all-or-nothing; the D distractor responses are correctly
-left unused — REQ-MAT-F-008.
 
 ### 7. Internal record
 
 Generate the Probe Target descriptor: ≤6 words describing the specific aspect
 of the concept this trial tested (e.g., "Failure propagation under concurrent load").
 For Ordering, the descriptor names the procedure aspect tested (e.g., "Dual-write
-ordering before backfill"). For Matching, the descriptor names the discrimination
-tested (e.g., "Reversible vs. structural grip loss"). Do not reveal it to the learner.
+ordering before backfill"). Do not reveal it to the learner.
 
 Record internally:
 ```
-{ trial_number, question_type (mcq/msq/ordering/matching), axis, grade (correct/incorrect), probe_target, gap_summary }
+{ trial_number, question_type (mcq/msq/ordering), axis, grade (correct/incorrect), probe_target, gap_summary }
 ```
 
 `gap_summary` is populated only for incorrect responses: the specific claim or
 mechanism the learner missed. For MSQ, note which picks were wrong and which correct
 answers were missed. For Ordering, note the false inclusions, the omissions, and the
-transposed pairs — REQ-ORD-F-009. For Matching, note the mis-attachments to
-distractor responses, the correct responses left unused, and the transposed pairs —
-REQ-MAT-F-021.
+transposed pairs — REQ-ORD-F-009.
 
 ---
 
@@ -467,66 +412,17 @@ correct step out of order, or any combination.
 
 ---
 
-### Matching — Correct answer
-
-A response is correct when every one of the learner's n prompt→response pairs
-exactly matches the key — binary, all-or-nothing; the D distractor responses are
-correctly left unused.
-
-1. Acknowledge briefly: "Correct." / "Right." / "That's it."
-2. State the axis: "The axis here is [axis]: [one sentence on what it tests in this scenario]."
-3. Explain why each pairing survives — address each prompt→response individually:
-   the projection that fixes it and rules out the other surface-viable responses
-   for that prompt.
-4. Address each distractor individually: the specific point where it fails and why
-   it matches no prompt under the axis. Name the orthodox-but-wrong distractor
-   explicitly: "X is the conventional answer for prompt [n] — professionally sound
-   in many contexts — but under [axis], prompt [n] resolves elsewhere, and X matches
-   nothing because [mechanism]."
-5. Resolve the near-duplicate confusion cell: the one phrase that separates the twin
-   prompts and the twin responses, and why it is decisive only under projection.
-6. Proceed immediately to the next trial. If this was trial N, proceed to the Analysis Phase instead.
-
-### Matching — Incorrect answer
-
-A response is incorrect when any of the learner's submitted pairs differs from the
-key — a prompt attached to a distractor, a correct response left unused, two
-prompts' responses transposed, or any combination.
-
-1. State the axis first: "The axis here is [axis]: [one sentence]."
-2. Decompose the error into its two error classes, each addressed individually:
-   - **Selection errors** — for each prompt the learner attached to a distractor
-     response, why that response matches no prompt under the axis (name the
-     orthodox-but-wrong lure if that is what they took); for each correct response
-     the learner left unused, why it belongs to its prompt — why it survives
-     projection.
-   - **Assignment errors** — for each transposed pair (two prompts whose correct
-     responses were swapped, the near-duplicate cross-wire being canonical), why
-     each prompt's true response is fixed under projection and why the swap fails.
-3. State the correct key directly: `1→A, 2→B, 3→C, 4→D` (E unused).
-4. Explain why each pairing survives — each prompt→response individually.
-5. Address all distractors individually — the same full coverage as the correct-answer
-   protocol. Name the orthodox-but-wrong distractor. Resolve the near-duplicate cell —
-   what one phrase differentiates the twins.
-6. Proceed to the next trial. If this was trial N, proceed to the Analysis Phase instead.
-
-**No nudge. No recovery exchanges.** This is an evaluation.
-
----
-
 ## Tangent Handling
 
 If the learner diverts mid-trial to explore a related concept:
 
 1. Note the interruption point: which trial number and what was presented.
-2. Engage with the tangent conversationally. Do not run MCQ, MSQ, Ordering, or Matching
+2. Engage with the tangent conversationally. Do not run MCQ, MSQ, or Ordering
    trials on the tangent concept — the probe is suspended, not extended.
 3. When the learner signals readiness to continue, re-present the interrupted trial from
    the beginning. Do not resume mid-question. For an Ordering trial, any re-presentation
    — after a tangent or after a clarification exchange — uses the same pool and the same
-   labels: no re-shuffle, no regeneration — REQ-ORD-F-015. For a Matching trial, any
-   re-presentation likewise uses the same prompts, the same responses, and the same
-   labels: no re-shuffle, no regeneration — REQ-MAT-F-015.
+   labels: no re-shuffle, no regeneration — REQ-ORD-F-015.
 
 ---
 
@@ -594,10 +490,10 @@ Output as a single Markdown document. Render sections conditionally as specified
 ## Trial Log
 | # | Type | Probe Target | Axis | Grade | Gap |
 |---|---|---|---|---|---|
-| 1 | MCQ / MSQ / ORD / MAT | [descriptor] | [axis] | ✓ / ✗ | — / [specific failure point] |
+| 1 | MCQ / MSQ / ORD | [descriptor] | [axis] | ✓ / ✗ | — / [specific failure point] |
 ```
 
-`Type`: MCQ, MSQ, ORD, or MAT.
+`Type`: MCQ, MSQ, or ORD.
 `Grade`: ✓ for correct, ✗ for incorrect.
 `Gap`: populated only for incorrect responses — the specific claim or mechanism missed.
 `Probe Target`: the ≤6-word descriptor generated after each trial.
@@ -670,13 +566,6 @@ For Ordering (REQ-ORD-F-017):
 - Selection errors: [false inclusions — distractors picked; omissions — correct steps missed], decomposed, or "none"
 - Ordering errors: [transposed forced pairs among the correctly-selected steps], decomposed, or "none"
 
-For Matching (REQ-MAT-F-017):
-- **Trial # — [Probe Target] ([axis]) [MAT]**
-- Submitted pairs: [prompt→response pairs as submitted]
-- Correct key: [prompt→response pairs, unused responses noted]
-- Selection errors: [attachments to distractor responses; correct responses left unused], decomposed, or "none"
-- Assignment errors: [transposed pairs — two prompts' correct responses swapped], decomposed, or "none"
-
 ---
 
 ### Error Pattern
@@ -717,25 +606,18 @@ has the procedure but slipped on one forced adjacency. Repeated selection of the
 orthodox-but-wrong inclusion, or errors spanning both selection and ordering across
 trials, reads as a **fundamental gap**.
 
-For Matching trials, apply this additionally (REQ-MAT-F-018): a single transposition
-in the near-duplicate cell, with the rest of the pairs otherwise correct, reads as a
-**surface gap** — the learner has the discrimination but slipped on the one decisive
-phrase. Repeated attachment to the orthodox-but-wrong distractor, or errors spanning
-both selection and assignment across trials, reads as a **fundamental gap**.
-
 ---
 
 ## Error Handling
 
-### REQ-MCQ-E-001 — MCQ_PROMPT, MSQ_PROMPT, ORDERING_PROMPT, or MATCHING_PROMPT unreadable
+### REQ-MCQ-E-001 — MCQ_PROMPT, MSQ_PROMPT, or ORDERING_PROMPT unreadable
 
 Halt immediately. Report:
 
 > "mcq-probe cannot proceed — [filename] is unreadable at [path]. Resolve this before continuing."
 
-Do not attempt to generate trials from memory or internal knowledge. All four prompt
-files are required. Their absence is not a degraded mode — it is a halt condition
-(REQ-MAT-E-001 extends this requirement to `MATCHING_PROMPT`).
+Do not attempt to generate trials from memory or internal knowledge. All three prompt
+files are required. Their absence is not a degraded mode — it is a halt condition.
 
 ### REQ-MCQ-E-002 — SCRIPT_AXIS non-zero exit
 
@@ -764,22 +646,3 @@ remains available to later trials. If all 3 re-draw attempts are exhausted, hold
 last-drawn axis and reconstruct the scenario to one it can force. Never substitute the
 trial type mid-trial. Only the finally-used axis enters the session's axis-exclusion
 list and the report's Axis Coverage — REQ-ORD-F-016.
-
-### REQ-MAT-E-002 — Invalid matching response
-
-A repeated prompt, a reused response, an out-of-range label, a missing prompt, or a
-response that otherwise cannot be parsed as a set of n prompt→response pairs is
-invalid. Ask the learner to resubmit. Do not count the attempt against the trial —
-the trial is still awaiting a valid response. A **well-formed** set that attaches a
-prompt to a distractor response is **valid and incorrect** — grade it, do not ask
-for a resubmit.
-
-### REQ-MAT-E-003 — Matching axis re-draw
-
-If the assigned axis cannot make the current matching trial's grid projection-resolvable,
-re-draw via `SCRIPT_AXIS --exclude [axes used this session] + [axes rejected for this
-trial]`, up to 3 attempts. A rejected axis is not added to the session's used-axes list —
-it remains available to later trials. If all 3 re-draw attempts are exhausted, hold the
-last-drawn axis and reconstruct the case-set to one it can force. Never substitute the
-trial type mid-trial. Only the finally-used axis enters the session's axis-exclusion
-list and the report's Axis Coverage — REQ-MAT-F-016.
