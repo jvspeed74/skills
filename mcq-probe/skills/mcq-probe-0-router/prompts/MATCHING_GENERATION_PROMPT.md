@@ -1358,19 +1358,11 @@
       illustrations of form, not templates for content. Do not reuse these
       case sets for actual assessments.
 
-      Structural-parameter warning: do NOT anchor on the (n, D) sizes shown
-      here. Example 1 is n=3/D=2 (the floor, where D ≥ 2 is mandatory) and
-      example 2 is n=6/D=3 (near the ceiling); the range between them is
-      unillustrated on purpose, and D=1 is legal above the floor though no
-      example shows it. For each real trial, choose n and D from the full
-      ranges (n ∈ [3,7]; D ∈ [1,3], with D ≥ 2 mandatory at n=3) driven by how
-      many genuinely confusable cases the concept affords — NOT by the sizes
-      shown here. If the concept affords five or six confusable cases, build
-      five or six; do not trim to match an example. Vary n across a session
-      rather than defaulting to one size. (These two are a representative
-      subset; the full per-axis construction gate covering the eight axes
-      available to Matching lives in the plan document,
-      plans/matching-question-type-plan.md §16.)
+      Do NOT anchor on the (n, D) sizes shown here. Choose n and D from the
+      full ranges (n ∈ [3,7]; D ∈ [1,3], with D ≥ 2 mandatory at n=3), driven
+      by how many genuinely confusable cases the concept affords. If it
+      affords five or six, build five or six; do not trim to match an
+      example. Vary n across a session rather than defaulting to one size.
     </note>
 
     <example id="1" axis="application" n="3" d="2" pool="A-E" correct-key="1-C,2-E,3-D">
