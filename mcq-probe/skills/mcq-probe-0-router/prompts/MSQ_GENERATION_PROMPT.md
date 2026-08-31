@@ -609,8 +609,9 @@
         - Has not been used in any prior trial or exchange this session
 
       Write the scenario as one or two short paragraphs (three only if genuinely
-      required). End with a neutral multi-select decision prompt (no banned language,
-      no count disclosure).
+      required). End with a neutral multi-select decision prompt (no banned language).
+      Append the correct-answer count as "(Select N.)" per stem-structure — the count
+      is disclosed for MSQ.
     </step>
 
     <step number="3" name="correct-answers-construction">

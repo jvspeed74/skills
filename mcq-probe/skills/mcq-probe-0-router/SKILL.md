@@ -41,7 +41,7 @@ MATCHING_PROMPT = /mnt/skills/user/mcq-probe/prompts/MATCHING_GENERATION_PROMPT.
 
 **Environment note:** The seven paths above are hosted-sandbox (Claude.ai Skills) conventions,
 where they are correct and must be used as written. When this skill runs under Claude Code as
-part of the `mcq-probe` plugin bundle, resolve all six relative to `${CLAUDE_PLUGIN_ROOT}`
+part of the `mcq-probe` plugin bundle, resolve all seven relative to `${CLAUDE_PLUGIN_ROOT}`
 instead:
 
 - `SCRIPT_TYPE` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_question_type.py`
