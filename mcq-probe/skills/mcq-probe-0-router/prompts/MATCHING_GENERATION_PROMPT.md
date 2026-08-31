@@ -55,16 +55,28 @@
     <total-trials-per-session>N (set during intake)</total-trials-per-session>
 
     <generation-cadence>
-      Generate ONE trial at a time. Present it to the learner. Wait for a
-      response. Evaluate the response. Then — and only then — generate the
-      next trial.
+      Trials are generated as a BATCH, ahead of delivery. The orchestration
+      layer (SKILL.md) runs a Generation Phase that constructs every trial in
+      the batch — each one carried through this prompt's full construction
+      sequence, including internal validation and explanation-baking — before
+      any trial is presented.
 
-      Do NOT pre-generate all trials before the learner has responded.
-      Do NOT present trials as a numbered batch.
+      Each trial is constructed and validated independently and completely. A
+      trial is never left partially built to be finished later, and no trial's
+      content depends on how the learner answered any other.
 
-      Reason: Batching removes the ability to shape later trials based on
-      what earlier trials revealed about the learner's mental model. Each
-      trial is informed by what preceded it.
+      Batched GENERATION does not change PRESENTATION. Do NOT present trials
+      as a numbered batch: the Delivery Loop still presents one trial, waits
+      for the learner's response, evaluates it, and only then moves to the
+      next.
+
+      Reason: mcq-probe does not adapt trial content to intermediate
+      performance. All N trials run regardless of results, and both the
+      question type and the judgment axis are drawn by the selector scripts
+      rather than by what earlier trials revealed. The one genuine cross-trial
+      constraint is axis variety, and it is preserved exactly — the batch draw
+      assigns a distinct axis to every slot before any trial content is
+      written.
     </generation-cadence>
 
     <axis-uniqueness>
@@ -424,6 +436,13 @@
           cues point away from the correct pairing (REQ-MAT-F-020).
       [ ] This case set was not used in any prior trial or exchange this
           session.
+      [ ] For every distractor response, BOTH its specific reason for matching
+          NO prompt under the axis AND the cross-viability account — why it
+          reads as a plausible match for ≥2 prompts on first pass — can be
+          stated concretely. If either cannot be stated, the response is
+          surface-locked or rejectable on sight — regenerate it. (This is a
+          check on the RESPONSE, not on any written record; the record is
+          produced later, in Step 9.)
     </internal-validation>
   </question-requirements>
 
@@ -772,10 +791,15 @@
   ============================================================ -->
 
   <trial-sequence-rules>
-    <rule id="1-at-a-time">
-      Generate one trial at a time. Present it. Wait for the learner's
-      response. Evaluate. Then generate the next trial. This is not
-      optional — it is structurally required.
+    <rule id="batch-generation">
+      Trials are generated as a batch by the orchestration layer's Generation
+      Phase, before any of them is presented. Every trial in the batch is
+      carried through this prompt's full construction sequence — Steps 1
+      through 9 — and no trial is presented until the whole batch has been
+      generated and baked.
+
+      Presentation remains sequential: one trial, one response, one
+      evaluation, then the next. Generation is batched; delivery is not.
     </rule>
 
     <rule id="N-per-session">
@@ -925,7 +949,190 @@
       checks pass.
     </step>
 
-    <step number="9" name="output">
+    <step number="9" name="explanation-baking">
+      Step 8 has passed. Only now, write the explanation atoms.
+
+      <what-this-step-is>
+        This step RECORDS determinations you have already made and already
+        validated. It does not ask you to make new ones. Every field below
+        corresponds to something the construction sequence and the
+        internal-validation checklist already forced you to establish:
+
+          axis_statement       ← Steps 1–3 and judgment-axes: the axis fixes both
+                                 the prompt-role→response-role semantic and the
+                                 wrong-attachment failure mode for this case set
+          key_survival         ← Step 5, which already requires each response to be
+                                 cross-viable for ≥2 prompts with its correct
+                                 prompt fixed only under projection, and the
+                                 complete assignment to be unique; checklist, "The
+                                 correct assignment is unique" and "Every prompt
+                                 has ≥2 surface-viable responses; no free prompt"
+          failure              ← Step 6 ("must match NO prompt under projection";
+                                 "Verify no two distractors fail for the same
+                                 reason"); checklist, "Each distractor fails for a
+                                 distinct reason, only under projection"
+          viability_account    ← grid-design-law part 1 (cross-viability) and
+                                 Step 6 ("Each distractor must be cross-viable
+                                 (plausible for ≥2 prompts)"); checklist, "Every
+                                 response is cross-viable for ≥2 prompts"; and
+                                 evaluation-framework's incorrect-key-evaluation,
+                                 which requires identifying "why the failure was
+                                 not visible on first read"
+          orthodox_but_wrong   ← Step 6 and orthodox-but-wrong minimum="1";
+                                 checklist, "≥1 orthodox-but-wrong distractor
+                                 response present"
+          near_duplicate_differentiators
+                               ← Step 5, which plants the near-duplicate cell, and
+                                 near-duplicate-cell rules 1–2 (one differentiating
+                                 phrase on the twin prompts, one on the twin
+                                 responses); checklist, "≥1 near-duplicate
+                                 confusion cell present"
+
+        Baking is strictly additive. It adds no construction rule, relaxes none,
+        and reorders none. Nothing in Steps 1–8 is conditional on this step.
+      </what-this-step-is>
+
+      <the-absolute-rule>
+        If an atom is hard to write, the defect is in the RESPONSE or the GRID,
+        not in the atom.
+
+        A distractor whose reason for matching no prompt cannot be stated
+        specifically, or whose cross-viability account cannot be stated at all,
+        has already failed grid-design-law — it is a hole in one. A pairing whose
+        rule-outs cannot be stated is not uniquely fixed under projection and
+        fails the unique-bijection law. Return to the step that produced the
+        defect (Step 4 or 5 for the case set and key, Step 6 for a distractor),
+        regenerate under the existing rule, and re-run Step 8.
+
+        NEVER weaken, simplify, narrow, or surface-lock a response in order to
+        make its atom easier to write. An easy-to-explain distractor and a
+        rejectable-on-sight distractor are the same defect. This is the one
+        failure this entire prompt exists to prevent.
+      </the-absolute-rule>
+
+      <record>
+        Emit exactly one JSON object for this trial, as a fenced code block with
+        the language tag json. Keys and nesting are fixed — do not rename fields,
+        add fields, or omit fields.
+
+        {
+          "question_type": "matching",
+          "axis": "<the axis finally settled after Step 2>",
+          "stem": "<the shared frame and the closing prompt, from Step 4>",
+          "choices": {
+            "prompts":   { "1": "…", "2": "…", "…": "…" },
+            "responses": { "A": "…", "B": "…", "…": "…" }
+          },
+          "key": { "1": "<response label>", "2": "<response label>", "…": "…" },
+          "explanation": {
+            "axis_statement": "<one sentence: what this axis tests in THIS case set>",
+            "key_survival": {
+              "<prompt label>": "<the projection that fixes this prompt to its response, AND what rules out the other surface-viable responses for this prompt>"
+            },
+            "distractor_failures": {
+              "<unused response label>": {
+                "failure": "<the specific point at which it fails to match ANY prompt under the axis, and the mechanism>",
+                "viability_account": "<why it reads as a plausible match for ≥2 prompts on first pass — name which prompts it pulls at>",
+                "orthodox_but_wrong": false,
+                "near_duplicate_of": null
+              }
+            },
+            "near_duplicate_differentiators": [
+              "<the phrase separating the twin prompts, the phrase separating the twin responses, and why the diagonal they resolve to is decisive ONLY under projection>"
+            ]
+          }
+        }
+      </record>
+
+      <field-rules>
+        choices: both lists in full, keyed by label — the n prompts under
+        "prompts", all m responses under "responses" in the shuffled label order
+        from Step 7. The record does not mark which responses are distractors;
+        that is recoverable from key and distractor_failures.
+
+        key: the injective prompt→response map, one entry per prompt, all n
+        present.
+
+        key_survival: one entry per prompt label — all n of them, 3 to 7 entries.
+        Each entry does TWO things: it states the projection that fixes that
+        prompt to its response, AND it rules out the other surface-viable
+        responses that prompt faces. Both halves are required.
+        correct-response-protocol Component 2 asks for "the projection that
+        resolves it, and what rules out the other surface-viable responses for
+        that prompt," and forbids summarizing the whole key in one sentence.
+        These rule-outs are also what the incorrect branch needs: a transposition
+        between two GENUINE responses involves no distractor, so nothing in
+        distractor_failures covers it — the rule-out inside each affected prompt's
+        key_survival entry is the only place that error is explained. Write them
+        accordingly.
+
+        distractor_failures: one entry for every UNUSED response — all D of them,
+        no exceptions, no merging. Used responses never get an entry, however
+        strongly they cross-attract; where a matched response is a conventional
+        answer for some other prompt (the cross-attracting matched form permitted
+        by orthodox-but-wrong), that pull is recorded as a rule-out inside the
+        relevant key_survival entry, not here. Each entry's failure must be
+        distinct from every other entry's; if two coincide, the trial offers no
+        diagnostic signal between them (see Step 6) — return to Step 6 and
+        regenerate one.
+
+        failure: the failure POINT and its mechanism. "It matches nothing under
+        the axis" is a conclusion, not a mechanism, and does not satisfy this
+        field.
+
+        viability_account: why the distractor reads as a plausible match for at
+        least two prompts, naming which ones it pulls at. This is a DIFFERENT
+        statement from failure and is not derivable from it. It is the field that
+        makes grid-design-law's cross-viability auditable: a response with no
+        statable cross-viability account was surface-locked or rejectable on sight
+        all along.
+
+        orthodox_but_wrong: true on at least one entry — every unused response
+        written as an orthodox-but-wrong distractor in Step 6. false on the rest.
+
+        near_duplicate_of: names the response label this response is twinned with.
+        It is normally null on every entry, because the near-duplicate cell twins
+        two CORRECT responses (Step 5) and no distractor takes part; the cell is
+        carried by near_duplicate_differentiators instead. Set it only if a
+        distractor was itself written as a twin of another response.
+
+        near_duplicate_differentiators: a list, one entry per near-duplicate cell
+        planted in Step 5 — at least one, more where the case set carries more.
+        Each entry names BOTH phrases: the one separating the twin prompts and the
+        one separating the twin responses. Component 4 requires both; an entry
+        giving only one does not satisfy this field. Never empty.
+      </field-rules>
+
+      <emission-gate>
+        Do not proceed to Step 10 until all of the following hold.
+
+        [ ] key_survival has an entry for every prompt label 1…n — none missing.
+        [ ] Every key_survival entry states both the fixing projection AND the
+            rule-out of the other surface-viable responses for that prompt.
+        [ ] distractor_failures has an entry for every unused response — all D,
+            none missing — and no entry for any used response.
+        [ ] Every failure states a mechanism, not a restatement of the conclusion.
+        [ ] Every viability_account names which prompts the response pulls at and
+            why, in terms specific to that response.
+        [ ] No two failure entries give the same reason.
+        [ ] At least one entry has orthodox_but_wrong: true.
+        [ ] Every near-duplicate cell from Step 5 is represented in
+            near_duplicate_differentiators, each entry naming both the
+            prompt-side and the response-side phrase.
+        [ ] Field names and nesting match the record above exactly.
+        [ ] No prompt, no response, and no pairing was altered during this step.
+      </emission-gate>
+
+      <internal-only>
+        This record is INTERNAL STATE. It is never rendered to the learner, never
+        quoted, never summarized, never hinted at. It carries the correct key,
+        which responses are distractors, and the full rationale — disclosing any
+        part of it destroys the trial. Treat it with the same discipline as the
+        probe target.
+      </internal-only>
+    </step>
+
+    <step number="10" name="output">
       Present the trial to the learner.
       Format: **MAT** on its own line, then the n numbered prompts (one
       per line), then the m lettered responses in shuffled order (one per
@@ -935,6 +1142,8 @@
       Do not reveal the axis. Do not mark correct pairs. Do not add hints
       or scaffolding after the response pool. Stop after the closing
       prompt. Wait for the learner's response.
+      Do not render, quote, summarize, or hint at the Step 9 record or any
+      of its explanation atoms. The learner sees only what this step prints.
     </step>
   </construction-sequence>
 

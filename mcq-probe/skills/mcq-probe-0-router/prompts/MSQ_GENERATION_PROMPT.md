@@ -32,15 +32,25 @@
     <total-trials-per-session>N (set during intake)</total-trials-per-session>
 
     <generation-cadence>
-      Generate ONE trial at a time. Present it to the learner. Wait for a response.
-      Evaluate the response. Then — and only then — generate the next trial.
+      Trials are generated as a BATCH, ahead of delivery. The orchestration layer
+      (SKILL.md) runs a Generation Phase that constructs every trial in the batch —
+      each one carried through this prompt's full construction sequence, including
+      internal validation and explanation-baking — before any trial is presented.
 
-      Do NOT pre-generate all trials before the learner has responded.
-      Do NOT present trials as a numbered batch.
+      Each trial is constructed and validated independently and completely. A trial
+      is never left partially built to be finished later, and no trial's content
+      depends on how the learner answered any other.
 
-      Reason: Batching removes the ability to shape later trials based on what
-      earlier trials revealed about the learner's mental model. Each trial is
-      informed by what preceded it.
+      Batched GENERATION does not change PRESENTATION. Do NOT present trials as a
+      numbered batch: the Delivery Loop still presents one trial, waits for the
+      learner's response, evaluates it, and only then moves to the next.
+
+      Reason: mcq-probe does not adapt trial content to intermediate performance.
+      All N trials run regardless of results, and both the question type and the
+      judgment axis are drawn by the selector scripts rather than by what earlier
+      trials revealed. The one genuine cross-trial constraint is axis variety, and
+      it is preserved exactly — the batch draw assigns a distinct axis to every
+      slot before any trial content is written.
     </generation-cadence>
 
     <axis-uniqueness>
@@ -270,6 +280,11 @@
           cannot reliably identify the correct set.
       [ ] No banned language appears in the stem or any answer choice.
       [ ] This scenario was not used in any prior trial or exchange this session.
+      [ ] For every wrong answer, BOTH its specific failure mechanism under the
+          axis AND the reason it reads as correct on first pass can be stated
+          concretely. If either cannot be stated, the choice is rejectable on
+          surface reading — regenerate it. (This is a check on the CHOICE, not on
+          any written record; the record is produced later, in Step 7.)
     </internal-validation>
   </question-requirements>
 
@@ -532,10 +547,14 @@
   ============================================================ -->
 
   <trial-sequence-rules>
-    <rule id="1-at-a-time">
-      Generate one trial at a time. Present it. Wait for the learner's response.
-      Evaluate. Then generate the next trial. This is not optional — it is
-      structurally required.
+    <rule id="batch-generation">
+      Trials are generated as a batch by the orchestration layer's Generation
+      Phase, before any of them is presented. Every trial in the batch is carried
+      through this prompt's full construction sequence — Steps 1 through 7 — and
+      no trial is presented until the whole batch has been generated and baked.
+
+      Presentation remains sequential: one trial, one response, one evaluation,
+      then the next. Generation is batched; delivery is not.
     </rule>
 
     <rule id="N-per-session">
@@ -644,7 +663,157 @@
       checks pass.
     </step>
 
-    <step number="7" name="output">
+    <step number="7" name="explanation-baking">
+      Step 6 has passed. Only now, write the explanation atoms.
+
+      <what-this-step-is>
+        This step RECORDS determinations you have already made and already
+        validated. It does not ask you to make new ones. Every field below
+        corresponds to something the construction sequence and the
+        internal-validation checklist already forced you to establish:
+
+          axis_statement      ← Steps 1–2: the axis is the determining factor in
+                                evaluation for this scenario
+          key_survival        ← Step 3; checklist, "Correct answers only survive
+                                when evaluated forward under the selected axis"
+          failure             ← Step 4 ("Ensure it fails under the assigned axis
+                                when projected forward"; "Verify it fails for a
+                                distinct reason from all other wrong answers");
+                                checklist, "Wrong answers fail under projection —
+                                not due to factual error or impossibility"
+          viability_account   ← viability-requirement; Step 4 ("Construct it to be
+                                independently viable in isolation"); checklist,
+                                "All five answers are independently viable"; and
+                                evaluation-framework's
+                                incorrect-answer-evaluation item 3
+          orthodox_but_wrong  ← Step 4 and orthodox-but-wrong; checklist, "At least
+                                one orthodox-but-wrong answer is present"
+          near_duplicate_of / near_duplicate_differentiators
+                              ← similarity-construction and Step 4 ("Apply
+                                deliberate surface similarity across choices");
+                                checklist, "Answer choices are constructed with
+                                deliberate surface similarity where applicable"
+
+        Baking is strictly additive. It adds no construction rule, relaxes none,
+        and reorders none. Nothing in Steps 1–6 is conditional on this step.
+      </what-this-step-is>
+
+      <the-absolute-rule>
+        If an atom is hard to write, the defect is in the ANSWER CHOICE, not in
+        the atom.
+
+        A wrong answer whose failure mechanism cannot be stated specifically, or
+        whose viability account cannot be stated at all, has already failed
+        viability-requirement — it is rejectable on surface reading. Return to
+        Step 4, regenerate that choice under the existing rule, and re-run Step 6.
+
+        NEVER weaken, simplify, narrow, or make a choice more obviously wrong in
+        order to make its atom easier to write. An easy-to-explain distractor and
+        a rejectable-on-sight distractor are the same defect. This is the one
+        failure this entire prompt exists to prevent.
+      </the-absolute-rule>
+
+      <record>
+        Emit exactly one JSON object for this trial, as a fenced code block with
+        the language tag json. Keys and nesting are fixed — do not rename fields,
+        add fields, or omit fields.
+
+        {
+          "question_type": "msq",
+          "axis": "<the axis assigned in Step 1>",
+          "stem": "<the scenario and its closing multi-select prompt, from Step 2>",
+          "choices": { "A": "…", "B": "…", "C": "…", "D": "…", "E": "…" },
+          "key": ["<label>", "…"],
+          "explanation": {
+            "axis_statement": "<one sentence: what this axis tests in THIS scenario>",
+            "key_survival": {
+              "<correct label>": "<why THAT answer survives projection — the mechanism, not the conclusion>"
+            },
+            "distractor_failures": {
+              "<wrong label>": {
+                "failure": "<the specific point at which it fails under the axis, and the mechanism>",
+                "viability_account": "<why it reads as correct on first pass — what made it viable in isolation>",
+                "orthodox_but_wrong": false,
+                "near_duplicate_of": null
+              }
+            },
+            "near_duplicate_differentiators": [
+              "<what separates the similar choices, and why that difference is decisive ONLY under forward projection>"
+            ]
+          }
+        }
+      </record>
+
+      <field-rules>
+        key: the set of correct labels from Step 3, between 1 and 4 inclusive.
+
+        key_survival: one entry per label in key — 1 to 4 entries. Each is
+        addressed on its own. Do not write a single combined statement for the
+        correct set; correct-response-protocol Component 2 requires each correct
+        answer to be explained individually, and one merged sentence cannot serve
+        it.
+
+        distractor_failures: one entry for every label in A–E that is NOT in key —
+        that is 5 minus the size of key, so 1 to 4 entries. "Not in key" is the
+        test; it has nothing to do with what a learner may later select. No
+        exceptions, no merging, no "the other options." Each entry's failure must
+        be distinct from every other entry's; if two coincide, the question was
+        constructed incorrectly (see similarity-construction) — return to Step 4
+        and regenerate one.
+
+        failure: the failure POINT and its mechanism. "It fails under the axis" is
+        a conclusion, not a mechanism, and does not satisfy this field.
+
+        viability_account: the reason the choice reads as correct on first pass.
+        This is a DIFFERENT statement from failure and is not derivable from it.
+        It is what the incorrect-response-protocol needs in order to show the
+        learner where their reasoning diverged rather than merely that it did.
+
+        orthodox_but_wrong: true on at least one entry — every wrong answer
+        written as an orthodox-but-wrong choice in Step 4. false on the rest.
+        MSQ permits more than one; set the flag on each.
+
+        near_duplicate_of: names the CHOICE LABEL this answer is closest twin to
+        within its similarity cluster. It is a choice label, not a key into
+        distractor_failures — the twin may be a correct answer, which has no
+        distractor_failures entry. null on any entry that is not part of a
+        similarity cluster. Where a cluster spans three or more choices, name the
+        single nearest twin here and describe the full cluster in
+        near_duplicate_differentiators.
+
+        near_duplicate_differentiators: a list, one entry per similarity cluster
+        constructed in Step 4. A cluster of three or more choices gets one entry
+        that names the choices and the phrase that separates them. Empty only if
+        no similarity structure was constructed at all — which the checklist item
+        on deliberate surface similarity makes rare.
+      </field-rules>
+
+      <emission-gate>
+        Do not proceed to Step 8 until all of the following hold.
+
+        [ ] key_survival has an entry for every label in key.
+        [ ] distractor_failures has an entry for every label in A–E not in key —
+            none missing.
+        [ ] Every failure states a mechanism, not a restatement of the conclusion.
+        [ ] Every viability_account states why that choice reads as correct on
+            first pass, in terms specific to that choice.
+        [ ] No two failure entries give the same reason.
+        [ ] At least one entry has orthodox_but_wrong: true.
+        [ ] Every similarity cluster from Step 4 is represented in
+            near_duplicate_differentiators.
+        [ ] Field names and nesting match the record above exactly.
+        [ ] No answer choice was altered during this step.
+      </emission-gate>
+
+      <internal-only>
+        This record is INTERNAL STATE. It is never rendered to the learner, never
+        quoted, never summarized, never hinted at. It carries the answer key and
+        the full rationale — disclosing any part of it destroys the trial. Treat
+        it with the same discipline as the probe target.
+      </internal-only>
+    </step>
+
+    <step number="8" name="output">
       Present the question to the learner.
       Format: **MSQ** on its own line, then the question stem, followed by
       A / B / C / D / E answer choices. The closing prompt must include the
@@ -652,6 +821,8 @@
       Do not reveal the axis. Do not mark correct answers. Do not add hints
       or scaffolding after the answer choices. Stop after E. Wait for the
       learner's response.
+      Do not render, quote, summarize, or hint at the Step 7 record or any of its
+      explanation atoms. The learner sees only what this step prints.
 
       The learner may respond with letters in any format (comma-separated,
       space-separated, or written out). Parse the selection as a set of letters.

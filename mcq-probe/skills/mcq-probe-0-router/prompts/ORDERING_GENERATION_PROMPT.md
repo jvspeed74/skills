@@ -45,15 +45,25 @@
     <total-trials-per-session>N (set during intake)</total-trials-per-session>
 
     <generation-cadence>
-      Generate ONE trial at a time. Present it to the learner. Wait for a response.
-      Evaluate the response. Then — and only then — generate the next trial.
+      Trials are generated as a BATCH, ahead of delivery. The orchestration layer
+      (SKILL.md) runs a Generation Phase that constructs every trial in the batch —
+      each one carried through this prompt's full construction sequence, including
+      internal validation and explanation-baking — before any trial is presented.
 
-      Do NOT pre-generate all trials before the learner has responded.
-      Do NOT present trials as a numbered batch.
+      Each trial is constructed and validated independently and completely. A trial
+      is never left partially built to be finished later, and no trial's content
+      depends on how the learner answered any other.
 
-      Reason: Batching removes the ability to shape later trials based on what
-      earlier trials revealed about the learner's mental model. Each trial is
-      informed by what preceded it.
+      Batched GENERATION does not change PRESENTATION. Do NOT present trials as a
+      numbered batch: the Delivery Loop still presents one trial, waits for the
+      learner's response, evaluates it, and only then moves to the next.
+
+      Reason: mcq-probe does not adapt trial content to intermediate performance.
+      All N trials run regardless of results, and both the question type and the
+      judgment axis are drawn by the selector scripts rather than by what earlier
+      trials revealed. The one genuine cross-trial constraint is axis variety, and
+      it is preserved exactly — the batch draw assigns a distinct axis to every
+      slot before any trial content is written.
     </generation-cadence>
 
     <axis-uniqueness>
@@ -380,6 +390,11 @@
       [ ] K is disclosed in the closing prompt; D is never disclosed.
       [ ] No banned language appears in the stem or any pool item.
       [ ] This scenario was not used in any prior trial or exchange this session.
+      [ ] For every distractor, BOTH its specific selection-failure mechanism
+          under the axis AND the reason it reads as a legitimate step in this task
+          can be stated concretely. If either cannot be stated, the distractor is
+          rejectable on sight — regenerate it. (This is a check on the POOL ITEM,
+          not on any written record; the record is produced later, in Step 8.)
     </internal-validation>
   </question-requirements>
 
@@ -698,10 +713,14 @@
   ============================================================ -->
 
   <trial-sequence-rules>
-    <rule id="1-at-a-time">
-      Generate one trial at a time. Present it. Wait for the learner's response.
-      Evaluate. Then generate the next trial. This is not optional — it is
-      structurally required.
+    <rule id="batch-generation">
+      Trials are generated as a batch by the orchestration layer's Generation
+      Phase, before any of them is presented. Every trial in the batch is carried
+      through this prompt's full construction sequence — Steps 1 through 8 — and
+      no trial is presented until the whole batch has been generated and baked.
+
+      Presentation remains sequential: one trial, one response, one evaluation,
+      then the next. Generation is batched; delivery is not.
     </rule>
 
     <rule id="N-per-session">
@@ -856,7 +875,189 @@
       reason). Do not output the trial until all checks pass.
     </step>
 
-    <step number="8" name="output">
+    <step number="8" name="explanation-baking">
+      Step 7 has passed. Only now, write the explanation atoms.
+
+      <what-this-step-is>
+        This step RECORDS determinations you have already made and already
+        validated. It does not ask you to make new ones. Every field below
+        corresponds to something the construction sequence and the
+        internal-validation checklist already forced you to establish:
+
+          axis_statement            ← Steps 1–3 and judgment-axes: the axis is both
+                                      the forcing dependency and the distractor
+                                      failure mode for this scenario
+          adjacency_forcings        ← Step 4, which already requires you to
+                                      "establish and write down (internally) the
+                                      forcing dependency under the axis" for each
+                                      adjacency; checklist, "every adjacency forced
+                                      under the axis; no order-independent pair"
+          reverse_order_failures    ← Step 4 ("Plant at least 2 order-sensitive
+                                      pairs") and order-sensitive-pairs rule 2
+                                      ("projecting the axis forward shows the given
+                                      order is the only one that avoids the axis's
+                                      failure mode"); checklist, "At least 2
+                                      order-sensitive pairs are present"
+          failure                   ← Step 5 ("fails SELECTION for a distinct reason
+                                      under the axis"); checklist, "Each distractor
+                                      fails selection for a distinct reason, only
+                                      under projection"
+          viability_account         ← pool-design-law ("Every pool item … must read
+                                      as a legitimate, plausible step in THIS
+                                      task"); checklist, "Every pool item … is a
+                                      plausible inclusion in this task"; and
+                                      evaluation-framework's
+                                      incorrect-sequence-evaluation, which requires
+                                      identifying "why the failure was not visible
+                                      on first read"
+          orthodox_but_wrong        ← Step 5 and orthodox-but-wrong minimum="1";
+                                      checklist, "At least 1 orthodox-but-wrong
+                                      inclusion is present"
+          near_duplicate_of         ← Step 5 and near-duplicate-distractor
+                                      minimum="1", which twins the distractor with
+                                      a correct step
+          near_duplicate_differentiators
+                                    ← near-duplicate-distractor rule 2 ("Identify
+                                      one phrase that differentiates them");
+                                      checklist, "the differentiator is decisive
+                                      only under projection"
+
+        Baking is strictly additive. It adds no construction rule, relaxes none,
+        and reorders none. Nothing in Steps 1–7 is conditional on this step.
+      </what-this-step-is>
+
+      <the-absolute-rule>
+        If an atom is hard to write, the defect is in the POOL ITEM or the
+        SEQUENCE, not in the atom.
+
+        A distractor whose selection-failure mechanism cannot be stated
+        specifically, or whose viability account cannot be stated at all, has
+        already failed pool-design-law — it is a hole in one. An adjacency whose
+        forcing cannot be stated is order-independent and fails order-model.
+        Return to the step that produced the defect (Step 4 for the sequence,
+        Step 5 for a distractor), regenerate under the existing rule, and re-run
+        Step 7.
+
+        NEVER weaken, simplify, narrow, or make a pool item more obviously wrong
+        in order to make its atom easier to write. An easy-to-explain distractor
+        and a rejectable-on-sight distractor are the same defect. This is the one
+        failure this entire prompt exists to prevent.
+      </the-absolute-rule>
+
+      <record>
+        Emit exactly one JSON object for this trial, as a fenced code block with
+        the language tag json. Keys and nesting are fixed — do not rename fields,
+        add fields, or omit fields.
+
+        {
+          "question_type": "ordering",
+          "axis": "<the axis finally settled after Step 2>",
+          "stem": "<the task scenario and its closing prompt, from Step 3>",
+          "choices": { "A": "…", "B": "…", "C": "…", "…": "…" },
+          "key": ["<label>", "<label>", "…"],
+          "explanation": {
+            "axis_statement": "<one sentence: what this axis tests in THIS scenario>",
+            "key_survival": {
+              "adjacency_forcings": [
+                "<X → Y: what state X establishes, and why Y is invalid without it>"
+              ],
+              "reverse_order_failures": [
+                "<X → Y: what running Y before X produces, or what precondition it violates, and why the pair nonetheless looks swappable on first read>"
+              ]
+            },
+            "distractor_failures": {
+              "<distractor label>": {
+                "failure": "<the specific point at which it fails SELECTION under the axis, and the mechanism>",
+                "viability_account": "<why it reads as a legitimate step in this task on first pass>",
+                "orthodox_but_wrong": false,
+                "near_duplicate_of": null
+              }
+            },
+            "near_duplicate_differentiators": [
+              "<the one embedded phrase separating the distractor from its correct twin, and why it is decisive ONLY under forward projection>"
+            ]
+          }
+        }
+      </record>
+
+      <field-rules>
+        choices: every pool item, correct step and distractor alike, keyed by its
+        label from Step 6 and listed in the shuffled label order the learner will
+        see. The record does not mark which items are distractors — that is
+        recoverable from key and distractor_failures.
+
+        key: the K correct step labels in their forced order. This is an ordered
+        list; its order is the answer.
+
+        key_survival.adjacency_forcings: exactly K−1 entries — one per adjacent
+        pair in key, in sequence order. Each is addressed on its own.
+        correct-response-protocol Component 2 requires every forced adjacency to be
+        explained individually and forbids summarizing the whole chain in one
+        sentence, so a merged statement does not satisfy this field.
+
+        key_survival.reverse_order_failures: one entry per order-sensitive pair
+        planted in Step 4 — at least 2, more where the scenario supports them.
+        This is a DIFFERENT statement from the adjacency forcing: the forcing says
+        why the given order holds, the reverse-order failure says what breaks when
+        the pair is swapped and why the swap looks legitimate on first read. Both
+        are required; neither substitutes for the other.
+
+        distractor_failures: one entry for every distractor — all D of them, no
+        exceptions, no merging. Each entry's failure must be distinct from every
+        other entry's; if two coincide, the trial offers no diagnostic signal
+        between them (see Step 5) — return to Step 5 and regenerate one.
+
+        failure: the failure POINT and its mechanism. "It fails under the axis" is
+        a conclusion, not a mechanism, and does not satisfy this field.
+
+        viability_account: why the distractor reads as a legitimate step in THIS
+        task. This is a DIFFERENT statement from failure and is not derivable from
+        it. It is the field that makes pool-design-law auditable: a distractor with
+        no statable viability account was rejectable on sight all along.
+
+        orthodox_but_wrong: true on at least one entry — every distractor written
+        as an orthodox-but-wrong inclusion in Step 5. false on the rest.
+
+        near_duplicate_of: names the CORRECT STEP's label that this distractor is
+        twinned with, per Step 5. It is a pool label, not a key into
+        distractor_failures — the twin is always a correct step, which has no
+        distractor_failures entry. null on any distractor that is not a
+        near-duplicate.
+
+        near_duplicate_differentiators: a list, one entry per near-duplicate
+        distractor written in Step 5 — at least one, more where D allows. Never
+        empty.
+      </field-rules>
+
+      <emission-gate>
+        Do not proceed to Step 9 until all of the following hold.
+
+        [ ] adjacency_forcings has exactly K−1 entries, one per adjacency in key.
+        [ ] reverse_order_failures has at least 2 entries, one per order-sensitive
+            pair planted in Step 4.
+        [ ] distractor_failures has an entry for every distractor — all D, none
+            missing.
+        [ ] Every failure states a mechanism, not a restatement of the conclusion.
+        [ ] Every viability_account states why that item reads as a legitimate
+            step in this task, in terms specific to that item.
+        [ ] No two failure entries give the same reason.
+        [ ] At least one entry has orthodox_but_wrong: true.
+        [ ] Every near-duplicate distractor has near_duplicate_of set to its
+            correct twin, and is represented in near_duplicate_differentiators.
+        [ ] Field names and nesting match the record above exactly.
+        [ ] No pool item and no sequence position was altered during this step.
+      </emission-gate>
+
+      <internal-only>
+        This record is INTERNAL STATE. It is never rendered to the learner, never
+        quoted, never summarized, never hinted at. It carries the correct
+        sequence, D, which items are distractors, and the full rationale —
+        disclosing any part of it destroys the trial. Treat it with the same
+        discipline as the probe target.
+      </internal-only>
+    </step>
+
+    <step number="9" name="output">
       Present the trial to the learner.
       Format: **ORD** on its own line, then the task scenario, then the pool —
       one label per line, in the shuffled order from step 6 — then the closing
@@ -866,6 +1067,8 @@
       Do not reveal the axis. Do not mark correct steps. Do not disclose D. Do
       not add hints or scaffolding after the pool. Stop after the closing
       prompt. Wait for the learner's response.
+      Do not render, quote, summarize, or hint at the Step 8 record or any of its
+      explanation atoms. The learner sees only what this step prints.
     </step>
   </construction-sequence>
 
