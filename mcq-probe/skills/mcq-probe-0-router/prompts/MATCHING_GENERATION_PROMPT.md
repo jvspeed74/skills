@@ -458,9 +458,17 @@
       [ ] Every prompt has ≥2 surface-viable responses; no free prompt.
       [ ] No pairing is recoverable by lexical/category overlap — surface
           reading resolves no cell.
-      [ ] No-elimination-shortcut: after any subset of prompts is correctly
-          matched, every remaining prompt still faces ≥2 surface-viable
-          responses.
+      [ ] FORM-ELIMINATION run: no response is set aside by grammatical
+          shape, register, specificity, or framing alone.
+      [ ] No response is the ONLY one that evaluates, recommends, or
+          compares.
+      [ ] Distractors and keyed responses are mixed across every framing
+          group.
+      [ ] Effective D ≥ 1 (≥ 2 at n = 3) — the surplus SURVIVING
+          form-elimination, not the nominal count.
+      [ ] No-elimination-shortcut holds over the form-surviving pool: after
+          any subset of prompts is correctly matched, every remaining
+          prompt still faces ≥2 surface-viable responses.
       [ ] The correct assignment is unique — no second complete bijection
           survives projection.
       [ ] ≥1 near-duplicate confusion cell present (2 twin prompts × 2 twin
@@ -483,12 +491,11 @@
           cues point away from the correct pairing (REQ-MAT-F-020).
       [ ] This case set was not used in any prior trial or exchange this
           session.
-      [ ] For every distractor response, BOTH its specific reason for matching
-          NO prompt under the axis AND the cross-viability account — why it
-          reads as a plausible match for ≥2 prompts on first pass — can be
-          stated concretely. If either cannot be stated, the response is
-          surface-locked or rejectable on sight — regenerate it. (This is a
-          check on the RESPONSE, not on any written record; the record is
+      [ ] HARD GATE. For every distractor, BOTH its reason for matching NO
+          prompt under the axis AND its cross-viability account state
+          concretely. If either will not: HALT and regenerate at step 6.
+          Do not weaken the account to fit. Do not raise D to compensate.
+          (Checks the RESPONSE, not any written record; the record is
           produced later, in Step 9.)
     </internal-validation>
   </question-requirements>
@@ -539,6 +546,12 @@
          every remaining prompt must still face ≥2 surface-viable
          responses. Surplus is the means; this law is the end.
 
+         Run the simulation over the pool that survives FORM-ELIMINATION
+         (see form-uniformity). Count effective D — what remains after
+         form-elimination — never nominal D. Nominal D = 1 with a
+         form-divergent distractor is effective D = 0, and forces the last
+         pairing.
+
       3. Unique bijection. Exactly one complete injective assignment
          survives projection. No second complete assignment is defensible
          under the axis. This is the gradeability guarantee — the matching
@@ -566,6 +579,30 @@
       bare label ("bufferbloat") is insufficient — it must describe the
       mechanism.
     </case-substance>
+
+    <form-uniformity>
+      Write all m responses so none can be told apart by FORM. Match them
+      on four properties:
+
+        1. Grammatical shape. Four concrete narratives naming an actor and
+           an event admit no fifth that is an abstract proposition about an
+           approach.
+        2. Register. No response may be the ONLY one that evaluates,
+           recommends, or compares.
+        3. Specificity. Hold concreteness and length comparable. Write no
+           response markedly more general or more hedged than the rest.
+        4. Framing. When responses share a construction ("If X fails for
+           ninety seconds, …"), mix distractors and keyed responses across
+           every framing group. Never let a framing group align with the
+           used/unused split.
+
+      Run the FORM-ELIMINATION TEST before shipping: read the m responses
+      ignoring content, attending only to how each is written. Regenerate
+      any response you can set aside on that basis alone. Do not raise D to
+      compensate.
+
+      Write every distractor in the same voice as the key.
+    </form-uniformity>
 
     <required-constructs>
       <!-- The two signature devices required in every trial. These are the
@@ -989,10 +1026,23 @@
       grid-design-law) and must match NO prompt under projection.
 
       Include at least 1 orthodox-but-wrong distractor, per the
-      construction rules in required-constructs. Run the
-      no-elimination-shortcut simulation: for every subset of prompts a
-      learner might correctly resolve first, confirm every remaining
-      prompt still faces ≥2 surface-viable responses.
+      construction rules in required-constructs.
+
+      Write every distractor in the key's voice — same grammatical shape,
+      register, specificity, framing (see form-uniformity). Run the
+      FORM-ELIMINATION TEST across all m responses. Regenerate any response
+      set aside on form before going further.
+
+      Then run the no-elimination-shortcut simulation over the surviving
+      pool: for every subset of prompts a learner might resolve first,
+      confirm every remaining prompt still faces ≥2 surface-viable
+      responses. Run it over effective D, never nominal D.
+
+      For each distractor, state BOTH its reason for matching no prompt
+      under the axis AND its cross-viability account — why it reads as a
+      plausible match for ≥2 prompts on first pass. If either will not
+      state concretely, HALT and regenerate that distractor here. Do not
+      weaken the account to fit. No later step re-checks this.
 
       Verify no two distractors fail for the same reason — if they do, the
       trial offers no diagnostic signal between them. Regenerate one so
@@ -1014,7 +1064,8 @@
       from the earliest affected step (return to step 2 if the axis-fit
       itself is implicated; step 5 if the grid is surface-solvable or the
       bijection is not unique; step 6 if a distractor is rejectable on
-      sight, defensible as a genuine match, or duplicates another
+      sight, form-divergent, has no statable cross-viability account,
+      is defensible as a genuine match, or duplicates another
       distractor's failure reason). Do not output the trial until all
       checks pass.
     </step>
