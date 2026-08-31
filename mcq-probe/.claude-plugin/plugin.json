@@ -1,7 +1,7 @@
 {
   "name": "mcq-probe",
-  "version": "1.0.0",
-  "description": "MCQ Probe — a standalone judgment-probe evaluation skill. Runs N trials on a learner-specified concept across MCQ, MSQ, Ordering, and Matching question types, delivers full per-trial breakdowns without coaching, and outputs a diagnostic Markdown report.",
+  "version": "1.3.0",
+  "description": "MCQ Probe — a standalone judgment-probe evaluation skill. Runs N trials on a learner-specified concept across MCQ, MSQ, and Ordering question types, delivers full per-trial breakdowns without coaching, and outputs a diagnostic Markdown report.",
   "author": {
     "name": "Jalen Vaughn",
     "email": "jvspeed74@gmail.com"
