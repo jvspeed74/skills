@@ -318,14 +318,50 @@
 
   <question-requirements>
     <stem-structure>
-      The stem introduces the case set: a shared frame establishing why
-      these n cases are being compared (a shared system, a shared class of
-      scenario, a shared decision the cases are variants of), followed by
-      the n numbered prompts and the shuffled response pool.
+      Write a case-set scenario, not a definition test. Put the learner in a
+      situation requiring judgment across several related cases at once, and
+      state the relation being resolved.
 
-      The shared frame is one to two sentences: just enough that every
-      response is topically plausible against every prompt, without
-      pre-wiring which response belongs to which prompt.
+      Emit five parts, in this order: shared frame, the n numbered prompts,
+      the shuffled response pool, the decision prompt, the format line.
+
+      Part 1 — shared frame. Write one or two short paragraphs. Establish
+      why these n cases are compared (a shared system, a shared class of
+      scenario, a shared decision they are variants of) and name the
+      dimension along which they differ. Use a third paragraph only when the
+      case set requires it to be specific; a longer frame that pads rather
+      than constrains is a defect. Leave every response topically plausible
+      against every prompt. Pre-wire no pairing.
+
+      Part 2 — bound nouns. Before writing anything the learner sees, bind:
+        PROMPT_NOUN   — names the numbered items
+        RESPONSE_NOUN — names the lettered items
+      Draw both from the case set's own subject matter ("deployment"/
+      "statement", "configuration"/"outcome", "symptom"/"cause"). Reject any
+      noun the tested concept owns — a trial about AI inference may not bind
+      "prompt" or "response". Fall back to "numbered item" and "lettered
+      item" when no natural noun fits. Use the bound pair unchanged in the
+      frame, the decision prompt, the format line, and all feedback.
+
+      Never print the words "prompt" or "response" to the learner. They are
+      this document's internal names for the two halves of the grid.
+
+      Part 3 — decision prompt. Write one question stating the relation the
+      learner resolves — the learner-facing rendering of this trial's
+      prompt-role→response-role semantic. Name no axis. Keep it separate
+      from the format line and place it first. Use one of:
+        "Which classification does each [PROMPT_NOUN] fall under?"
+        "Which outcome does each [PROMPT_NOUN] produce?"
+        "Which cause produced each [PROMPT_NOUN]?"
+        "Which behavior holds for each [PROMPT_NOUN]?"
+        "What does the mechanism predict for each [PROMPT_NOUN]?"
+        "Which signal detects each [PROMPT_NOUN]?"
+
+      Part 4 — format line. Print answer mechanics only:
+        "Match each numbered [PROMPT_NOUN] (1–[n]) to the one lettered
+        [RESPONSE_NOUN] (A–[m]) — for example, 1-C. [D] of the [m]
+        [RESPONSE_NOUN]s go unused."
+      Put no part of the relation here. Signal no axis.
 
       Where a near-duplicate confusion cell depends on a gating detail (the
       one condition its correct response fires on), that detail must be
@@ -334,10 +370,10 @@
       condition is sometimes necessary to preserve a single valid key;
       under-specifying it risks a second defensible bijection.
 
-      End with a closing prompt that discloses the matching constraint but
-      never signals the axis:
-        "Match each of the [n] prompts to one response (e.g., 1-C, 2-A, …).
-        Not every response is used."
+      Make the frame and decision prompt specific enough that exactly one
+      complete assignment is defensible under the axis. Do not buy
+      plausibility with vagueness — building cross-viability is
+      grid-design-law's job, not the stem's.
 
       n and m (the response pool size) are both visible — both lists are
       printed in full. D (= m − n) is derivable from the visible counts, but
@@ -373,7 +409,7 @@
     <scenario-freshness>
       Each trial must present a case set that was not used in any prior
       trial or exchange in this session. The same surface case set with a
-      different closing prompt is not fresh — the case set must be
+      different decision prompt is not fresh — the case set must be
       substantively distinct.
 
       If the probe is re-run on the same concept in a future session, all
@@ -400,6 +436,17 @@
 
       [ ] The axis assigned by the script was used — no substitution.
       [ ] No prompt or response names or signals the axis.
+      [ ] Shared frame present (Part 1); names the dimension the n cases
+          differ along.
+      [ ] Decision prompt present (Part 3); states the relation; names no
+          axis; printed SEPARATELY from the format line.
+      [ ] Format line carries mechanics only — no part of the relation.
+      [ ] PROMPT_NOUN and RESPONSE_NOUN bound (Part 2) from the case set's
+          subject matter; neither is a noun the tested concept owns.
+      [ ] "Prompt" and "response" appear in no learner-facing text — stem,
+          decision prompt, format line, or feedback.
+      [ ] Frame and decision prompt together admit exactly one complete
+          assignment.
       [ ] The concept affords a dense, projection-resolvable grid under the
           axis (else the axis-fit fallback was taken — see
           construction-sequence step 2).
@@ -575,10 +622,10 @@
         prompt's true match. The distractor form is primary; it is what
         justifies the surplus.
 
-        When delivering feedback, name it explicitly: "E is the
-        conventional answer for prompt 1 — professionally sound in many
-        contexts — but under [axis], prompt 1 resolves to A, and E matches
-        nothing because [mechanism]."
+        When delivering feedback, name it explicitly, in the bound nouns:
+        "E is the conventional answer for [PROMPT_NOUN] 1 — professionally
+        sound in many contexts — but under [axis], [PROMPT_NOUN] 1 resolves
+        to A, and E matches nothing because [mechanism]."
       </orthodox-but-wrong>
     </required-constructs>
 
@@ -656,8 +703,12 @@
         - "reduce effort", "reduce complexity", "reduce cost"
         - "the team decides", "the engineer configures", "the system is
           designed"
-        - Neutral closing prompt: "Match each of the [n] prompts to one
-          response (e.g., 1-C, 2-A, …). Not every response is used."
+        - Neutral decision prompt naming the relation without the axis:
+          "Which outcome does each [PROMPT_NOUN] produce?" — see
+          stem-structure Part 3 for the full set.
+        - Neutral format line, mechanics only: "Match each numbered
+          [PROMPT_NOUN] (1–[n]) to the one lettered [RESPONSE_NOUN] (A–[m])
+          — for example, 1-C. [D] of the [m] [RESPONSE_NOUN]s go unused."
     </preferred-stem-language>
   </prohibited-language>
 
@@ -676,6 +727,9 @@
     <required-explanation>
       When the learner submits the exact correct key, provide a structured
       explanation covering ALL of the following. Do not omit any component.
+
+      Name the two halves of the grid by the nouns bound in Step 3. Never
+      write "prompt" or "response" in feedback.
 
       Component 1 — Projection axis disclosure:
         State the decision axis in exactly one sentence.
@@ -738,6 +792,9 @@
 
       This anchors the learner's understanding before the failure is
       explained.
+
+      Name the two halves of the grid by the nouns bound in Step 3. Never
+      write "prompt" or "response" in feedback.
     </axis-identification>
 
     <failure-explanation>
@@ -883,6 +940,13 @@
       association fail and projection necessary — it is not incidental
       framing.
 
+      Then render that pairing into learner-facing form (stem-structure
+      Parts 2 and 3):
+        - Bind PROMPT_NOUN and RESPONSE_NOUN from the case set's subject
+          matter. Reject any noun the tested concept owns.
+        - Write the decision prompt in those nouns. Name no axis.
+      Fix both here. Use them unchanged downstream.
+
       Transfer axis only: apply domain-vocabulary inversion. Phrase each
       response in a domain other than its correct prompt's, so keyword
       cues point at the wrong pairing and only mechanism resolves the grid
@@ -890,12 +954,18 @@
     </step>
 
     <step number="4" name="case-set-construction">
-      Write n prompts (3–7) as minimal variants along one dimension of the
-      concept, sharing a common frame so every response will be topically
+      Write the shared frame per stem-structure Part 1.
+
+      Write n prompts (3–7) as minimal variants along that dimension,
+      sharing the common frame so every response will be topically
       plausible against every prompt, each prompt diverging at one
       embedded distinguishing detail. Number them 1 through n. Do not
       signal the axis. Do not reuse a case set from any prior trial or
       exchange this session.
+
+      Make the frame and the Step 3 decision prompt together admit exactly
+      one complete assignment. Build cross-viability into the grid at Steps
+      5 and 6, never by vaguening the frame.
     </step>
 
     <step number="5" name="key-construction">
@@ -1018,7 +1088,7 @@
         {
           "question_type": "matching",
           "axis": "<the axis finally settled after Step 2>",
-          "stem": "<the shared frame and the closing prompt, from Step 4>",
+          "stem": "<the shared frame from Step 4, the decision prompt from Step 3, and the format line — verbatim as printed>",
           "choices": {
             "prompts":   { "1": "…", "2": "…", "…": "…" },
             "responses": { "A": "…", "B": "…", "…": "…" }
@@ -1133,15 +1203,20 @@
     </step>
 
     <step number="10" name="output">
-      Present the trial to the learner.
-      Format: **MAT** on its own line, then the n numbered prompts (one
-      per line), then the m lettered responses in shuffled order (one per
-      line), then the closing prompt: "Match each of the [n] prompts to
-      one response (e.g., 1-C, 2-A, …). Not every response is used."
+      Print, in order: **MAT** on its own line, the shared frame, the n
+      numbered prompts (one per line), the m lettered responses in shuffled
+      order (one per line), the decision prompt, the format line.
+
+      Print the decision prompt and the format line separately — never
+      merged. Print the format line as mechanics only: "Match each numbered
+      [PROMPT_NOUN] (1–[n]) to the one lettered [RESPONSE_NOUN] (A–[m]) —
+      for example, 1-C. [D] of the [m] [RESPONSE_NOUN]s go unused."
+
+      Use the nouns bound in Step 3. Never print "prompt" or "response".
 
       Do not reveal the axis. Do not mark correct pairs. Do not add hints
-      or scaffolding after the response pool. Stop after the closing
-      prompt. Wait for the learner's response.
+      or scaffolding after the format line. Stop after the format line.
+      Wait for the learner's response.
       Do not render, quote, summarize, or hint at the Step 9 record or any
       of its explanation atoms. The learner sees only what this step prints.
     </step>
@@ -1285,8 +1360,20 @@
       <domain>prompts span four domains by design — hospital, software, coffee shop, factory</domain>
 
       <stem>
-        Match each situation to the statement that correctly states what
-        Little's Law predicts. Not every statement is used.
+        <!-- PROMPT_NOUN = "situation", RESPONSE_NOUN = "statement" -->
+        <frame>
+          Four systems each hold work in progress while items arrive, wait,
+          and leave. In each, one quantity has just been changed and the
+          others are left to settle; the systems differ in which quantity
+          moved and whether the system stays stable afterward.
+        </frame>
+        <decision-prompt>
+          What does Little's Law predict for each situation?
+        </decision-prompt>
+        <format-line>
+          Match each numbered situation (1–4) to the one lettered statement
+          (A–E) — for example, 1-C. 1 of the 5 statements goes unused.
+        </format-line>
       </stem>
 
       <prompts>
@@ -1407,8 +1494,20 @@
       </note>
 
       <stem>
-        Match each retry configuration and condition to what actually
-        results from applying it. Not every outcome is used.
+        <!-- PROMPT_NOUN = "configuration", RESPONSE_NOUN = "outcome" -->
+        <frame>
+          Three clients call the same failing dependency, each with a
+          different retry configuration in force. The configurations differ
+          in how long they wait between attempts, how many attempts they
+          make, and what the dependency is doing while they retry.
+        </frame>
+        <decision-prompt>
+          Which outcome does each configuration produce?
+        </decision-prompt>
+        <format-line>
+          Match each numbered configuration (1–3) to the one lettered
+          outcome (A–E) — for example, 1-C. 2 of the 5 outcomes go unused.
+        </format-line>
       </stem>
 
       <prompts>
@@ -1559,8 +1658,21 @@
       </note>
 
       <stem>
-        Match each failure scenario to the signal that actually detects it
-        in time. Not every signal is used.
+        <!-- PROMPT_NOUN = "scenario", RESPONSE_NOUN = "signal" -->
+        <frame>
+          A single service is subject to six different failure modes. Each
+          mode has its own exposure window — the interval between the
+          condition beginning and the damage becoming irreversible — and the
+          modes differ in how long that window is and in what changes
+          observably while it is open.
+        </frame>
+        <decision-prompt>
+          Which signal detects each scenario inside its exposure window?
+        </decision-prompt>
+        <format-line>
+          Match each numbered scenario (1–6) to the one lettered signal
+          (A–I) — for example, 1-C. 3 of the 9 signals go unused.
+        </format-line>
       </stem>
 
       <prompts>
