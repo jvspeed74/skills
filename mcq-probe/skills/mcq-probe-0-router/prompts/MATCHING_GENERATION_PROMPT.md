@@ -205,28 +205,6 @@
       crossed which way — is projected against it.
     </axis>
 
-    <axis name="transfer">
-      Tests whether the learner carries the concept's underlying mechanism
-      into each prompt's specific domain instantiation, rather than
-      following surface vocabulary borrowed from the domain the concept is
-      usually taught in. The axis question: does the learner understand the
-      mechanism itself, well enough to recognize it wearing a different
-      domain's words?
-
-      Prompt-role→response-role semantic: new-domain-case →
-      mechanism-instantiation. Each prompt is a case in some domain; each
-      response states what the concept's mechanism predicts, phrased in the
-      vocabulary of another domain.
-
-      Wrong-attachment failure mode: the response's vocabulary matches a
-      DIFFERENT prompt's domain by keyword, luring a learner who matches on
-      surface language rather than mechanism. Construction rule
-      (REQ-MAT-F-020): on a transfer trial, phrase every response in a
-      domain other than its correct prompt's — domain-vocabulary inversion —
-      so keyword matching is systematically misdirected and only mechanism
-      resolves the grid. Worked in full in example 1.
-    </axis>
-
     <axis name="time">
       Tests whether the learner attaches each condition to the consequence
       that actually holds once the interval it takes for state to propagate
@@ -486,9 +464,6 @@
       [ ] The correct pairing is NOT the identity diagonal (1→A, 2→B, …).
       [ ] No banned language; no sequencing/pointer cues that pre-wire a
           pairing.
-      [ ] Transfer axis only: domain-vocabulary inversion applied — no
-          response shares its correct prompt's domain vocabulary; keyword
-          cues point away from the correct pairing (REQ-MAT-F-020).
       [ ] This case set was not used in any prior trial or exchange this
           session.
       [ ] HARD GATE. For every distractor, BOTH its reason for matching NO
@@ -972,8 +947,7 @@
       Choose the prompt-role→response-role pairing the assigned axis makes
       load-bearing (e.g., failure-diagnosis → symptom→cause;
       boundary-condition → condition→behavior; recognition →
-      presentation→classification; transfer → new-domain-case→
-      mechanism-instantiation). This role pairing is what makes surface
+      presentation→classification). This role pairing is what makes surface
       association fail and projection necessary — it is not incidental
       framing.
 
@@ -983,11 +957,6 @@
           matter. Reject any noun the tested concept owns.
         - Write the decision prompt in those nouns. Name no axis.
       Fix both here. Use them unchanged downstream.
-
-      Transfer axis only: apply domain-vocabulary inversion. Phrase each
-      response in a domain other than its correct prompt's, so keyword
-      cues point at the wrong pairing and only mechanism resolves the grid
-      (REQ-MAT-F-020; worked in full in example 1).
     </step>
 
     <step number="4" name="case-set-construction">
@@ -1390,146 +1359,21 @@
       case sets for actual assessments.
 
       Structural-parameter warning: do NOT anchor on the (n, D) sizes shown
-      here. These three examples deliberately span the ranges — example 1 is
-      n=4/D=1, example 2 is n=3/D=2 (the floor, where D ≥ 2 is mandatory), and
-      example 3 is n=6/D=3 (near the ceiling) — precisely so no single size
-      reads as the default. For each real trial, choose n and D from the full
+      here. Example 1 is n=3/D=2 (the floor, where D ≥ 2 is mandatory) and
+      example 2 is n=6/D=3 (near the ceiling); the range between them is
+      unillustrated on purpose, and D=1 is legal above the floor though no
+      example shows it. For each real trial, choose n and D from the full
       ranges (n ∈ [3,7]; D ∈ [1,3], with D ≥ 2 mandatory at n=3) driven by how
       many genuinely confusable cases the concept affords — NOT by the sizes
       shown here. If the concept affords five or six confusable cases, build
       five or six; do not trim to match an example. Vary n across a session
-      rather than defaulting to one size. (These three are a representative
-      subset; the full per-axis construction gate covering all nine axes lives
-      in the plan document, plans/matching-question-type-plan.md §16.)
+      rather than defaulting to one size. (These two are a representative
+      subset; the full per-axis construction gate covering the eight axes
+      available to Matching lives in the plan document,
+      plans/matching-question-type-plan.md §16.)
     </note>
 
-    <example id="1" axis="transfer" n="4" d="1" pool="A-E" correct-key="1-B,2-D,3-E,4-A">
-      <concept>
-        Little's Law (average work-in-progress = arrival rate ×
-        time-in-system, L = λW, in a stable system)
-      </concept>
-      <domain>prompts span four domains by design — hospital, software, coffee shop, factory</domain>
-
-      <stem>
-        <!-- PROMPT_NOUN = "situation", RESPONSE_NOUN = "statement" -->
-        <frame>
-          Four systems each hold work in progress while items arrive, wait,
-          and leave. In each, one quantity has just been changed and the
-          others are left to settle; the systems differ in which quantity
-          moved and whether the system stays stable afterward.
-        </frame>
-        <decision-prompt>
-          What does Little's Law predict for each situation?
-        </decision-prompt>
-        <format-line>
-          Match each numbered situation (1–4) to the one lettered statement
-          (A–E) — for example, 1-C. 1 of the 5 statements goes unused.
-        </format-line>
-      </stem>
-
-      <prompts>
-        <item label="1">
-          Hospital ED — arrivals steady; a fast-track lane cuts each
-          patient's average time in the department.
-        </item>
-        <item label="2">
-          Software team — ticket intake rate held constant; a strict
-          work-in-progress cap enforced on the board.
-        </item>
-        <item label="3" role="near-duplicate" pair-with="4">
-          Coffee shop — a promotion lifts the walk-in rate by half, but the
-          counter still serves faster than customers arrive.
-        </item>
-        <item label="4" role="near-duplicate" pair-with="3">
-          Factory — sales doubles the order arrival rate, past what the
-          unchanged machines can complete.
-        </item>
-      </prompts>
-
-      <responses>
-        <item label="A" role="correct-for near-duplicate" pair-with="4" phrased-in="coffee-shop">
-          When customers arrive faster than the counter can ever serve
-          them, there is no steady line length — the queue grows without
-          bound.
-        </item>
-        <item label="B" role="correct-for near-duplicate" pair-with="1" phrased-in="network/buffer">
-          At a fixed inflow rate, shortening the time each item is held in
-          the buffer lowers the average number buffered.
-        </item>
-        <item label="C" role="orthodox-but-wrong" phrased-in="neutral">
-          Since throughput is work over time, cutting the time each item
-          spends in the system raises the number processed per hour.
-        </item>
-        <item label="D" role="correct-for near-duplicate" pair-with="2" phrased-in="factory">
-          To hold the number of units on the floor at the imposed ceiling
-          while the line keeps admitting parts at the same rate, each
-          part's time on the floor is driven down.
-        </item>
-        <item label="E" role="correct-for near-duplicate" pair-with="3" phrased-in="hospital">
-          With treatment capacity and per-patient time unchanged, a higher
-          but still-manageable admission rate raises the ward's census
-          proportionally to a new, stable level.
-        </item>
-      </responses>
-
-      <correct-key>1→B, 2→D, 3→E, 4→A (C unused)</correct-key>
-
-      <annotation>
-        Keyword-lure table — every surface cue misleads:
-
-        | Response | Phrased in     | Keyword-lures toward       | Mechanism resolves to |
-        |----------|----------------|-----------------------------|------------------------|
-        | A        | coffee-shop    | prompt 3 (coffee) — wrong   | prompt 4 — arrivals exceed capacity, unbounded |
-        | B        | network/buffer | no prompt shares this vocabulary | prompt 1 — fixed arrival rate, cut time-in-system, count falls |
-        | D        | factory        | prompt 4 (factory) — wrong  | prompt 2 — clamp count at fixed arrival rate, time-in-system falls |
-        | E        | hospital       | prompt 1 (hospital ED) — wrong | prompt 3 — higher-but-servable arrival rate, bounded proportional rise |
-        | C        | neutral        | —                            | nothing |
-
-        Three of four genuine responses keyword-lure toward the WRONG
-        prompt (A→3, D→4, E→1); the fourth (B) has no keyword home at all,
-        forcing mechanism reasoning regardless. Domain-keyword matching
-        scores near zero against this key — this is domain-vocabulary
-        inversion (REQ-MAT-F-020) in force: every response is phrased in a
-        domain other than its correct prompt's.
-
-        Two near-duplicate cells:
-
-        {1,2}×{B,D} — the dual levers of L=λW. The split is which
-        variable the intervention clamps: prompt 1's fast-track clamps
-        time-in-system directly (count falls as a consequence) → B;
-        prompt 2's cap clamps the count directly (time-in-system falls as
-        a consequence) → D. Both responses describe a real, correct
-        consequence of Little's Law; which one applies to which prompt is
-        decidable only by tracking which variable each scenario's
-        intervention actually targets.
-
-        {3,4}×{E,A} — the stability boundary. Arrivals still within
-        capacity (prompt 3 → a bounded, proportional rise in the number in
-        system → E) vs. arrivals exceeding capacity (prompt 4 → no steady
-        state exists → A). Little's Law holds only for a stable system; a
-        learner who extends "more arrivals, proportionally more in
-        system" past the stability boundary mis-assigns E to prompt 4 or A
-        to prompt 3.
-
-        Orthodox-but-wrong (C): "throughput equals work over time, so
-        cutting time-in-system raises throughput" is the canonical
-        Little's Law misapplication — it surface-fits prompts 1 and 2,
-        both of which describe cutting time-in-system. It matches
-        nothing: in a stable system, throughput equals the arrival rate,
-        which both prompt 1 and prompt 2 hold fixed. Cutting
-        time-in-system changes the population in the system, not the rate
-        at which work completes.
-
-        Unique bijection: 1→B, 2→D, 3→E, 4→A; C nowhere.
-        No-elimination-shortcut (D=1): after 1→B and 2→D are correctly
-        placed, {3,4}×{E,A,C} remains contested — the stability boundary
-        must still be projected to split E from A and to reject C. The
-        surplus is not decorative; it is load-bearing at every stage of
-        resolution.
-      </annotation>
-    </example>
-
-    <example id="2" axis="application" n="3" d="2" pool="A-E" correct-key="1-C,2-E,3-D">
+    <example id="1" axis="application" n="3" d="2" pool="A-E" correct-key="1-C,2-E,3-D">
       <concept>Retry-with-backoff behavior under different parameter and dependency conditions</concept>
       <domain>distributed systems / client-side resilience</domain>
 
@@ -1540,8 +1384,7 @@
         forced once the other two are placed. D=2 is what keeps the grid
         from unzipping, and the near-duplicate cell is sited on the two
         LAST-resolved prompts (1 and 2) so no correct placement hands the
-        remainder away for free. Contrast example 1 (n=4/D=1), where a
-        single surplus suffices.
+        remainder away for free.
       </note>
 
       <stem>
@@ -1695,7 +1538,7 @@
       </annotation>
     </example>
 
-    <example id="3" axis="observability" n="6" d="3" pool="A-I" correct-key="1-D,2-A,3-B,4-E,5-G,6-I">
+    <example id="2" axis="observability" n="6" d="3" pool="A-I" correct-key="1-D,2-A,3-B,4-E,5-G,6-I">
       <concept>Monitoring-signal selection for different failure modes and their exposure windows</concept>
       <domain>systems reliability / observability</domain>
 
