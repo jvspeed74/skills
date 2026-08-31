@@ -1,31 +1,55 @@
 # Plan — C3: Cross-trial consistency pass (#10)
 
-**Status:** Stage 1 — plan authored, **not implemented**. 14 open questions block stage 2 (§8).
+**Status:** Implemented — stage 2 complete. #10 was **re-scoped** after the stage-1 planning pass:
+all three checks REQ-C-008 named were withdrawn and replaced. See §0 and parent amendment **A-12**.
 **Parent plan:** `plans/5-frontload-question-generation.md`, **as amended** — the Amendments
-section wins on conflict. Its artifact schema, two-pass draw, and REQ-C-001…015 are binding and
-are not revisited here.
+section wins on conflict. A-12 is this issue's authority.
 **Branch:** `feat/10-cross-trial-consistency`
-**Target file:** `mcq-probe/skills/mcq-probe-0-router/SKILL.md` (single file; the split is #6).
-**Requirements owned:** REQ-C-008, REQ-C-009. **Failure mode owned:** FM-C-6.
-**Siblings:** #8 (Generation Phase / Delivery Loop — landed) · #9 (explanation baking — landed).
-This is the last open sub-issue of Feature C (#5).
+**Target files:** `mcq-probe/skills/mcq-probe-0-router/SKILL.md`, one new script, `plugin.json`.
+**Requirements owned:** ~~REQ-C-008~~ (withdrawn) · **REQ-C-016** · **REQ-C-017** · REQ-C-009.
+**Failure mode owned:** FM-C-6.
+**Siblings:** #8 (Generation Phase / Delivery Loop) · #9 (explanation baking). Both merged.
+Last open sub-issue of Feature C (#5).
 
 ---
 
-## 0. Readback — the defining interpretation
+## 0. The re-scope — what changed and why
 
-1. **This is a second gate, never a substitute.** Each prompt's `internal-validation` checklist
-   runs per slot inside G5 rule 3, *before* the slot is written. G6 runs after every slot is
-   written, over the finalized set, and checks a property no per-slot gate can see. G5 rule 3 is
-   untouched.
-2. **The pass is a rejection mechanism, and rejection creates pressure.** Regenerating for
-   distinctness rewards trials that are easy to make *different* over trials that are hard to
-   answer. A regenerated slot clears the identical `internal-validation` checklist, with **no
-   allowance made because it is a retry**. FM-10-1 carries this; it is non-delegable.
-3. **Three checks are named; none is defined.** REQ-C-008 names "no repeated scenario", "no
-   clustered correct-answer position", and "domain-anchor variety". Each of the three needs an
-   operational definition that no input supplies, and one of the three (domain) has no artifact
-   field and no supporting rule anywhere in the prompts. §8 is the deliverable of this stage.
+Stage 1 planned REQ-C-008 as written and surfaced 14 open questions. The coordinator's
+resolution withdrew the requirement rather than defining it. **All three of its checks fail, for
+three different reasons**, and the evidence is §3:
+
+| REQ-C-008 check | Verdict | Why |
+|---|---|---|
+| No repeated scenario | **Redundant** | Already gated per slot in all four `<internal-validation>` checklists — MCQ:283, MSQ:282, ORD:392, MAT:437 — plus `<rule id="no-question-reuse">` in all four |
+| Domain-anchor variety | **Incoherent** | `<domain-anchoring>` binds every trial to intake I3's single `DOMAIN`. The check contradicts the architecture rather than extending it. No artifact field exists, and none should |
+| No clustered correct-answer position | **Statistically inert** | With four types drawn uniformly, E[MCQ slots] = 0.75 at N=3, 1.25 at N=5, 2.25 at N=9. P(≥3 MCQ slots) is **1.6% at N=3**. A clustering check needs ≥3 items to separate signal from noise, so it almost never has anything to judge |
+
+As specified, #10 would have added regeneration pressure while catching essentially nothing —
+the worst possible trade against FM-10-1. Two replacements, per A-12:
+
+1. **`select_answer_position.py`** — the positional-bias concern is real; the *rejection* mechanism
+   was the wrong tool. `MCQ_PROMPT`'s `position-assignment` step and `<answer-position>` both ask
+   the **model** to "vary the position of the correct answer across the trials," which is exactly
+   the randomization models are unreliable at, and exactly why `select_question_type.py` and
+   `select_mcq_axis.py` exist. Fix it **by construction, in Pass 1** — nothing is regenerated, so
+   FM-10-1's pressure is removed entirely rather than mitigated.
+2. **G6 becomes an atom-completeness sweep** — stage-1 OQ-13's finding. Parent FM-C-3 and #9's
+   FM-9-3 both promise atom coverage is verified in the consistency pass; REQ-C-008 never carried
+   it. That is the check with real signal, and REQ-C-015's merge-window objection is moot now
+   that #8 and #9 are both merged.
+
+### Readback — the defining interpretation
+
+1. **G6 is a second gate, never a substitute.** The per-slot `internal-validation` checklist runs
+   inside G5 rule 3, before a slot is written, and is untouched. G6 runs after the last slot and
+   checks a property no per-slot gate can see.
+2. **The regeneration bar is identical.** A regenerated slot clears the same checklist as an
+   original, with **no allowance because it is a retry**. A missing atom is evidence of a defect
+   in the *choice* — regenerate the choice, never soften it. FM-10-1.
+3. **The position draw constrains placement, never construction.** It fixes *where* the correct
+   answer sits. The near-duplicate pair, the orthodox-but-wrong choice, and the independent
+   viability of all four choices are unchanged.
 
 ---
 
@@ -33,174 +57,155 @@ This is the last open sub-issue of Feature C (#5).
 
 ### Key globals
 
-| Global | Value before #10 | Value after #10 |
+| Global | Before #10 | After #10 |
 |---|---|---|
-| Cross-trial checking | None. Nothing compares a finalized batch against itself | `G6` over the finalized batch, before delivery |
-| Scenario-freshness enforcement | Per-slot `internal-validation` item only — MCQ:283, MSQ:282, ORD:392, MAT:437 | Per-slot item **plus** a batch-level re-check (scope: OQ-1, OQ-3) |
-| Correct-answer position across trials | Construction-step instruction only. **No `internal-validation` item in any of the four prompts** — verified, §3 | Batch-level check (definition: OQ-4…OQ-7) |
-| Domain anchor | `DOMAIN`, a session constant set at intake I3; `<domain-anchoring>` directs every trial to it | Blocked on OQ-8 — no artifact field, and no cross-trial variety rule exists to inherit |
-| Regeneration on a cross-trial defect | n/a | Offending slot only, ≤3 attempts, then accept and log — REQ-C-009, FM-C-6 |
-| Generation Phase steps | G1 announce · G2 batch size · G3 prompt load · G4 pass 1 · G5 pass 2 | + **G6 consistency pass** |
-| Batch axis uniqueness | Guaranteed by G4 pass 1 + REQ-C-004 | Must survive regeneration — OQ-10 |
-| `SKILL.md` size | 953 lines / **10,929 tokens** (measured, `token-counter`) | +G6; measure at stage 2, do not estimate |
-| `plugin.json` version | `1.1.0` | `1.2.0` — required for cache re-sync |
-| Type draw | Uniform, independent, with replacement over the non-excluded types (`select_question_type.py`) | Unchanged — no script edit |
+| MCQ correct-answer position | Assigned by model judgment at `MCQ_PROMPT` step `position-assignment`; "vary across the trials" ungated (§3) | Drawn by `SCRIPT_POSITION` in Pass 1; written to `key`; Pass 2 constructs around it |
+| Positional balance over a batch | Unmeasured; model-dependent | **Exactly the pigeonhole floor ⌈m/4⌉, zero variance** (measured, §3) |
+| Externalized randomization | 2 scripts — type, axis | 3 scripts — type, axis, **answer position** |
+| Cross-trial checking | None | G6 atom-completeness sweep over the finalized batch |
+| Atom coverage enforcement | `<emission-gate>` per slot, inside the prompt (#9) | Per-slot gate **plus** a batch-level sweep — the check FM-C-3 and FM-9-3 both promised |
+| Regeneration on a G6 failure | n/a | Offending slot only; type, axis, `axis_rejected` and MCQ position held; ≤3 attempts; then accept and log internally |
+| Generation Phase steps | G1–G5 | **G1–G6** |
+| `SKILL.md` | 953 lines / 10,929 tokens | **1,046 lines / 13,009 tokens** (+93 lines, **+2,080 tokens, +19.0%**) — measured, `token-counter` |
+| `plugin.json` version | `1.1.0` | `1.2.0` |
 
 ### Seam verification (verified against the live file, not inherited)
 
-`mcq-probe/skills/mcq-probe-0-router/SKILL.md`, 953 lines:
+Pre-edit, `SKILL.md` was 953 lines: `## Generation Phase` 310, `### G5` 378, slot written 424,
+**line 426** "When every slot is written, the batch is complete. Proceed to the Delivery Loop.",
+`---` 428, `## Delivery Loop` 430.
 
-| Line | Content |
-|---|---|
-| 310 | `## Generation Phase` |
-| 378 | `### G5. Pass 2 — content, slot by slot` |
-| 424 | `**Write the slot** into the batch artifact, with `grade` and `gap_summary` null.` |
-| 426 | `When every slot is written, the batch is complete. Proceed to the Delivery Loop.` |
-| 428 | `---` |
-| 430 | `## Delivery Loop` |
+**Line 426 routed around G6** — as written it handed control straight to delivery. It is
+repointed: "When every slot is written, proceed to G6. The batch is not final until G6 has
+passed it." This was the single edit most likely to be missed, and it would have made the whole
+section dead text.
 
-The insertion point named in the brief is confirmed: a new `### G6` between line 426 and the
-line-428 rule. Line 426 is the sentence that must be repointed — it currently hands control
-straight to the Delivery Loop and would otherwise route around G6.
-
-Per plan 8's as-built seam map, the Generation Phase block is lines 243–429. G6 lands inside it,
-so #6's split stays a cut at a `##` boundary.
+Post-edit: `## Generation Phase` 322, `### G6` 465, `## Delivery Loop` 512. G6 sits inside the
+Generation Phase `##` block, so #6's split stays a cut at a `##` boundary.
 
 ### Pipeline after this change
 
 Intake I1–I6 → Generation Phase (**G1** announce → **G2** `BATCH_SIZE = N` → **G3** prompt load →
-**G4** pass 1: type+axis for every slot → **G5** pass 2: construct, validate, write each slot →
-**G6** consistency pass over the finalized batch, regenerating offending slots and re-running) →
-Delivery Loop D1–D5 → Analysis Phase → Report.
+**G4** Pass 1: type, axis, and MCQ answer position for every slot → **G5** Pass 2: construct,
+validate, write → **G6** atom-completeness sweep, regenerating incomplete slots) → Delivery Loop
+D1–D5 → Analysis Phase → Report.
 
 ---
 
 ## 2. Problem statement
 
-Before #8, each trial was generated blind to the others: `SCRIPT_AXIS --exclude` saw only
-*completed* trials, and no record of an unfinished trial existed to compare against. Every
-cross-trial quality rule in the four prompts was therefore an instruction the generator could
-only honor from memory, and no gate anywhere could verify it. #8 made the whole batch exist
-before delivery. This issue is the first consumer of that fact.
+Two defects, both of which only became addressable once #8 made the whole batch exist before
+delivery.
 
-Three concrete gaps, each verified in §3:
+1. **Positional bias is assigned by judgment and gated by nothing.** `MCQ_PROMPT` step
+   `position-assignment` says "Vary the position of the correct answer across the trials. Do not
+   consistently place the correct answer in the same position." There is **no corresponding
+   `internal-validation` item in any of the four prompts** (§3) — so the instruction is
+   unverifiable, and it asks the model for uniform randomness across a sequence, which is the
+   failure mode this repo already solved twice by externalizing the draw to a script.
 
-1. **Every cross-trial position rule in all four prompts is ungated.** MCQ step 7, MSQ step 5 and
-   `<answer-position>`, `<label-and-shuffle>` in ORDERING and MATCHING all instruct the generator
-   to vary placement *across trials*. Not one of them has a corresponding `internal-validation`
-   checklist item in any of the four files. The two label items that *are* gated (ORD:389,
-   MAT:431) are **within**-trial properties — "not in label order", "not the identity diagonal" —
-   and say nothing about the batch.
-
-2. **Scenario non-reuse is gated per slot, but only pairwise-backwards.** Each prompt carries an
-   `internal-validation` item ("This scenario was not used in any prior trial or exchange this
-   session") and a `<trial-sequence-rules><rule id="no-question-reuse">`. Both are written for
-   the sequential case: slot *k* judges itself against slots 0…*k*−1 from memory, under
-   construction pressure, with no committed record. Whether G6's re-check is redundancy or a
-   genuinely different aggregate test is OQ-3.
-
-3. **Domain-anchor variety has no basis to build on.** `<domain-anchoring>` (MCQ:253, MSQ:252,
-   ORD:351, MAT:384) tells every trial to use the *same* `DOMAIN` from intake I3. The only
-   "change the domain" instruction in the corpus is session-level and fires on a re-run of an
-   exhausted concept (MCQ:1036, MSQ:1113, MAT:1916 — "Change the domain anchor for the **new
-   session**"). REQ-C-008's third check has no rule to inherit, no artifact field to read, and
-   a plausible direct conflict with an explicit learner preference. OQ-8.
+2. **Atom coverage is gated per slot but never over the batch.** #9's `<emission-gate>` blocks a
+   slot's output when an atom is missing. Nothing checks the assembled batch. A gap is invisible
+   at delivery: REQ-C-015's fallback silently authors the missing rationale live, the reasoning
+   cost this feature exists to move quietly returns, and no signal is produced anywhere —
+   parent FM-C-3.
 
 ---
 
-## 3. What the pass can check today — verified per-type inventory
+## 3. Evidence — verified per-type inventory
 
-Load-bearing evidence for §2 and for the open questions. Every citation checked in the working
-tree at `mcq-probe/skills/mcq-probe-0-router/prompts/`.
+Citations checked in the working tree at `mcq-probe/skills/mcq-probe-0-router/prompts/`. This
+section is the basis for the withdrawal in §0 and is retained for traceability.
 
 | Type | `key` shape | Within-trial placement rule | Gated? | Cross-trial placement rule | Gated? | Scenario item |
 |---|---|---|---|---|---|---|
-| mcq | one label, A–D | step 7 `position-assignment` | No | *"Vary the position of the correct answer across the trials"* (step 7, MCQ:653) | **No** | MCQ:283 |
-| msq | set ⊆ A–E, size 1–4 | step 5 `position-assignment`; `<answer-position>` MSQ:378 | No | *"Vary their distribution across the trials in this session"* (step 5, MSQ:655) | **No** | MSQ:282 |
-| ordering | ordered list over pool A–H, P = K+D, K∈[3,5], D∈[1,3] | *"correct sequence is not in label order"* | **Yes** ORD:389 | *"Vary the shuffle and the distribution of correct-vs-distractor labels across trials … do not let distractors cluster predictably at the end of the alphabet"* (`<label-and-shuffle>`, ORD:525) | **No** | ORD:392 |
-| matching | injective 1…n → A…m, n∈[3,7], m∈[4,10], D∈[1,3] | *"correct pairing is NOT the identity diagonal"* | **Yes** MAT:431 | *"Vary the shuffle across trials … do not cluster distractor letters at the end of the alphabet"* (`<label-and-shuffle>`, MAT:585) | **No** | MAT:437 |
+| mcq | one label, A–D | step `position-assignment` | No | *"Vary the position of the correct answer across the trials"* (MCQ:653) | **No** | MCQ:283 |
+| msq | set ⊆ A–E, size 1–4 | step `position-assignment`; `<answer-position>` MSQ:378 | No | *"Vary their distribution across the trials in this session"* (MSQ:655) | **No** | MSQ:282 |
+| ordering | ordered list over pool A–H, P = K+D, K∈[3,5], D∈[1,3] | *"correct sequence is not in label order"* | **Yes** ORD:389 | `<label-and-shuffle>` ORD:525 | **No** | ORD:392 |
+| matching | injective 1…n → A…m, n∈[3,7], m∈[4,10], D∈[1,3] | *"correct pairing is NOT the identity diagonal"* | **Yes** MAT:431 | `<label-and-shuffle>` MAT:585 | **No** | MAT:437 |
 
-**The non-reuse unit is already type-specific, and already wider than "scenario"** —
-`<rule id="no-question-reuse">`:
+Scenario non-reuse is separately gated by `<rule id="no-question-reuse">` in all four —
+MCQ:567, MSQ:571, ORD:743, MAT:824 — over a type-specific unit set already **wider** than
+"scenario" (answer choice, step, distractor, prompt, response). Hence "redundant" in §0.
 
-| File:line | Unit forbidden from reuse within a session |
-|---|---|
-| MCQ:567 | question, **scenario**, or **answer choice** |
-| MSQ:571 | question, **scenario**, or **answer choice** |
-| ORD:743 | **task scenario**, **step**, or **distractor** |
-| MAT:824 | **case set**, **prompt**, or **response** |
+Domain: `<domain-anchoring>` at MCQ:253, MSQ:252, ORD:351, MAT:384 directs every trial to intake
+I3's `DOMAIN`. The only "change the domain anchor" instruction in the corpus is session-level,
+for a re-run of an exhausted concept — MCQ:1036, MSQ:1113, MAT:1916. Hence "incoherent".
 
-REQ-C-008 says "no repeated *scenario*", which is narrower than all four. Nothing settles which
-reading G6 enforces (OQ-1, OQ-2).
+### Why the position fix is construction, not rejection
 
-### Clustering figures — why the threshold is a decision, not a default
+Exact enumeration over all 4^m assignments of the correct label for *m* MCQ slots, uniform —
+the model's unconstrained behavior at best:
 
-Exact enumeration over all 4^m assignments of the correct label for *m* MCQ slots, uniform:
-
-| m (MCQ slots) | Pigeonhole floor ⌈m/4⌉ | E[max label count] | P(some label ≥ 3) |
+| m | pigeonhole floor ⌈m/4⌉ | E[max label count] | P(some label ≥ 3) |
 |---|---|---|---|
 | 3 | 1 | 1.69 | 0.062 |
-| 4 | 1 | 2.12 | 0.203 |
 | 5 | 2 | 2.48 | 0.414 |
-| 7 | 2 | 3.19 | 0.846 |
 | 9 | 3 | 3.87 | **1.000** |
 
-Two consequences that any threshold decision must respect:
+A rejection-based check is trapped between these: a threshold of 3 is **unsatisfiable** at m=9
+(the floor is 3) and fires on **41.4%** of batches at m=5, making regeneration the normal path
+and FM-10-1's pressure continuous. And *m* is itself small — E[m] = N/4 with all four types
+available.
 
-- **A "no label appears 3+ times" rule is unsatisfiable at m = 9.** The pigeonhole floor is 3, so
-  every all-MCQ 9-trial batch would regenerate to the FM-C-6 cap on every slot and then be
-  accepted anyway — 27 wasted constructions, zero effect. FM-10-4.
-- **At m = 5 that same rule fires on 41.4% of batches.** Regeneration stops being exceptional and
-  becomes the normal path, which is precisely when FM-10-1's pressure turns continuous. R-10-2.
+`select_answer_position.py` sidesteps the trade. Measured over 20,000 simulated batches per size,
+drawing uniformly from the least-used positions:
 
-Type draw is uniform and independent per slot, so *m* is itself random: E[m] = N/4 with all four
-types available, N/2 when both the I5 and I6 gates fire. Whether the threshold scales on N or on
-the per-type sub-count *m* is OQ-6/OQ-7.
+| m | pigeonhole floor | observed max | mean max | P(slot 0 = A) |
+|---|---|---|---|---|
+| 3 | 1 | **1** | 1.00 | 0.248 |
+| 5 | 2 | **2** | 2.00 | 0.251 |
+| 9 | 3 | **3** | 3.00 | 0.245 |
+| 10 | 3 | **3** | 3.00 | 0.251 |
+
+The floor is hit exactly, every time, with **zero variance** — against the model's E[max] of
+1.69 / 2.48 / 3.87 — while the first slot stays uniform at 0.25, so balance costs no
+predictability. Nothing is regenerated to achieve it.
 
 ---
 
 ## 4. Design decisions
 
-Every row is inherited — from the parent plan, issue #10, the coordinator's brief, or the live
-file. **Nothing is originated here.** Every fork the inputs do not settle is in §8 instead.
-
 | Decision | Resolution | Source |
 |---|---|---|
-| Where the pass runs | A new `### G6` in `## Generation Phase`, after G5 writes the last slot, before control passes to the Delivery Loop | Issue #10; brief; verified at `SKILL.md`:426/428/430 |
-| What G6 sees | The **finalized** batch — every slot written, validated, and carrying its atoms | REQ-C-008 |
-| Relationship to per-slot validation | **Additive second gate.** G5 rule 3 stays the primary gate and is untouched; G6 never substitutes for it, never reorders around it, and never relaxes it | Brief non-goals; parent FM-C-1; `CLAUDE.md` |
-| Regeneration granularity | The **offending trial only**, never the batch | REQ-C-009; parent §Design decisions, "Consistency-pass granularity" |
-| After a regeneration | **Re-run the pass** over the batch | REQ-C-009 |
-| Regeneration cap | **3 attempts per slot**, then accept the trial and log internally. Mirrors the existing 3-attempt refit convention (REQ-ORD-E-003 / REQ-MAT-E-003) | FM-C-6 |
-| Bar for a regenerated slot | Identical. It clears the same `internal-validation` checklist and the same `explanation-baking` emission gate as an original. **No allowance for being a retry** | `CLAUDE.md`; parent FM-C-1; brief |
-| Prompt access during regeneration | No reload. All four prompts are held in context from G3 for the whole session, and REQ-C-010's no-prompt-reading constraint binds **delivery**, not generation | `SKILL.md` G3; Active Constraints; REQ-C-010 |
-| Learner-visible output | **None.** G6 emits nothing. The G1 announcement already fired and states no count; the batch artifact and every finding over it are internal | REQ-C-011; `SKILL.md` Batch Artifact never-render; FM-C-2 |
-| Artifact field names | Binding. #10 adds no field without coordinator sign-off — OQ-8 and OQ-12 both need one and are therefore blocked, not resolved | Parent §Artifact schema |
-| G6's internal form | A numbered step list, so #4 and #7 append rather than restructure | Plan 8 §R-8-3 / OQ-7 precedent; `plans/18-…` FM-3 |
-| Citation discipline in new text | Refer to prompt elements **by name** (`internal-validation`, `explanation-baking`, `<label-and-shuffle>`, `<rule id="no-question-reuse">`) — never by step number or line number, which #9 already shifted and #24 will shift again | Plan 8 FM-8-2 precedent; #24 |
-| Files under `prompts/` | **Not touched.** #9 just landed there; #24 restructures them | Brief; #24 |
-| Version bump | `mcq-probe/.claude-plugin/plugin.json` `1.1.0` → `1.2.0`, in stage 2. #22/#23 omitted it only to avoid a parallel-worktree conflict | Brief; parent §Files touched |
-| Split-friendliness | G6 lands inside the Generation Phase block (`SKILL.md` 243–429) — no section spans the Generation/Delivery boundary | Plan 8 §5 as-built seam map |
+| REQ-C-008's three checks | **Withdrawn** — redundant, incoherent, and statistically inert respectively (§0, §3) | Coordinator; parent **A-12** |
+| Positional bias | Fixed **by construction** in Pass 1, never by rejection. Nothing is regenerated for position | A-12 |
+| Script scope | **MCQ only.** Ordering and Matching have no assignable correct-answer position — their `<label-and-shuffle>` is within-trial and already gated. MSQ's correct set is content-constrained; recorded as a follow-up, not implemented | A-12; coordinator |
+| Where the drawn position is stored | Written straight to **`key`**. For MCQ the key label *is* the correct answer's position, so the existing binding field carries it and **no schema field is added** | Parent §Artifact schema ("field names are binding"); minimal-change principle |
+| Script argument | **`--assigned`**, not `--exclude` — see §8 OQ-A. Deliberate, documented divergence | This implementation; flagged for review |
+| Script fallback | Assign the label used by fewest earlier MCQ slots, ties in `A,B,C,D` order. Mirrors REQ-MCQ-E-002's "first not yet assigned" structure; registered as **REQ-MCQ-E-004** | Coordinator ("mirroring E-002/E-003") |
+| G6's substance | Atom-completeness sweep over the finalized batch, per the type's coverage rule | A-12; stage-1 OQ-13 |
+| G6 vs. per-slot validation | **Additive second gate.** G5 rule 3 stays primary and is untouched, never bypassed or softened | `CLAUDE.md`; parent FM-C-1; brief |
+| Regeneration granularity | Offending slot only; complete slots untouched | REQ-C-009 |
+| **Regeneration holds type and axis** | A regenerated slot keeps `question_type`, `axis`, `axis_rejected`, and (MCQ) its Pass-1 position. Re-drawing the axis would break batch axis-uniqueness and silently corrupt the report's Axis Coverage | Coordinator, stage-1 OQ-10 |
+| Regeneration form | Slot rewritten **whole** through the type's prompt including `explanation-baking`; never patched in place | FM-10-7 |
+| Regeneration bar | Identical to an original. No retry allowance | `CLAUDE.md`; parent FM-C-1 |
+| Cap | 3 per slot, then accept and log internally. **No batch-level cap** — the per-slot cap already bounds the worst case | FM-C-6; coordinator, stage-1 OQ-11 |
+| Cap-exhaustion record | **Internal only.** No schema field, no report section. Delivery's atoms-absent fallback (REQ-C-015) already handles the residue, so the log is diagnostic, not load-bearing | Coordinator, stage-1 OQ-12 |
+| Line 426 | Repointed through G6 | Stage-1 finding; coordinator |
+| Citation discipline | Prompt elements cited **by name** (`position-assignment`, `internal-validation`, `explanation-baking`), never by step or line number — #9 already shifted them and #24 will again | Plan 8 FM-8-2 precedent |
+| `prompts/` | **Not touched.** MCQ step `position-assignment` and `<answer-position>` stay as written; the script supplements them | Coordinator; #24 |
+| Version | `plugin.json` `1.1.0` → `1.2.0` | Coordinator; #18 OQ-1 |
 
 ---
 
 ## 5. Requirements
 
-Owned by this issue, verbatim from the parent plan.
-
 | ID | Requirement | Scope |
 |---|---|---|
-| REQ-C-008 | A consistency pass runs over the finalized batch: no repeated scenario, no clustered correct-answer position, domain-anchor variety | `SKILL.md` — new `### G6`; one Active Constraints bullet |
-| REQ-C-009 | A consistency failure regenerates only the offending trial, then re-runs the pass | `SKILL.md` — G6 step list; possibly a new Error Handling entry for the cap |
+| ~~REQ-C-008~~ | ~~A consistency pass runs over the finalized batch: no repeated scenario, no clustered correct-answer position, domain-anchor variety~~ — **withdrawn by A-12** | — |
+| **REQ-C-016** | `SCRIPT_POSITION` is drawn in Pass 1 for every `mcq` slot and fixes that slot's `key`; Pass 2 constructs the choices around it. MCQ only | New script; `SKILL.md` File Path Constants, Active Constraints, G4 step 3, G5 rule 4, REQ-MCQ-E-004 |
+| **REQ-C-017** | G6 sweeps the finalized batch and verifies every slot's `explanation` block against its type's coverage rule; an incomplete slot is regenerated, a complete slot untouched | `SKILL.md` — new `### G6`; Active Constraints |
+| REQ-C-009 | A consistency failure regenerates only the offending trial, then re-runs the pass | `SKILL.md` — G6 regeneration block |
+| REQ-MCQ-E-004 | `SCRIPT_POSITION` non-zero exit falls back to the least-used label, ties in `A,B,C,D` order, logged internally | `SKILL.md` — Error Handling |
 
-**Derived, from FM-C-6:** regeneration is capped at 3 attempts per slot; on exhaustion the trial
-is accepted and the waiver logged internally. Where the log lives is OQ-12.
+**Derived, FM-C-6:** 3 regeneration attempts per slot; on exhaustion accept and log internally.
 
-**Non-goals, explicit.** No edit to any file under `prompts/` (#9 landed there; #24 restructures).
-No on-disk persistence (#7). No file split (#6). No endless-mode windowing (#4). No change to
-`select_question_type.py` or `select_mcq_axis.py`. **No change to what a distractor must satisfy
-— no construction rule, viability rule, pool/grid law, required construct, banned-language list,
-or `internal-validation` item is weakened, reordered around, or made conditional.**
+**Non-goals.** No edit to any file under `prompts/` (#9 landed there; #24 restructures). No MSQ
+position draw (§8 OQ-B). No on-disk persistence (#7). No file split (#6). No endless-mode
+windowing (#4). **No change to what a distractor must satisfy** — no construction rule, viability
+rule, pool/grid law, required construct, banned-language list, or `internal-validation` item is
+weakened, reordered around, or made conditional.
 
 ---
 
@@ -208,16 +213,17 @@ or `internal-validation` item is weakened, reordered around, or made conditional
 
 | ID | Mode | Trigger | Outcome | Accepted? |
 |---|---|---|---|---|
-| **FM-10-1** | **Distractor quality traded for distinctness under regeneration pressure** | G6 rejects a slot for a cross-trial reason. The cheapest way to make a trial *different* is to make it *easier* — a further-flung scenario with looser distractors clears the collision faster than a tight one | Distractors become rejectable on surface reading. The premise of the skill collapses, and it collapses **invisibly**, because the trial that ships is the one that passed a distinctness check, not a difficulty check | **No.** The regenerated slot re-runs the type's full construction sequence, `internal-validation` checklist, and `explanation-baking` emission gate — identical bar, no retry allowance. `viability_account` is the load-bearing guard (#9 Gate 2): a weakened distractor has **no viability account to write**, so it cannot be emitted. G6 text must state that a collision is fixed by re-authoring the scenario, never by loosening a choice. **Non-delegable review item on the stage-2 diff.** |
-| FM-10-2 | Cap exhaustion silently ships a colliding trial | 3 regenerations still collide | A repeated scenario or a clustered key reaches the learner with no signal | **Accepted** — inherited from FM-C-6. Logged internally; where, is OQ-12 |
-| FM-10-3 | Regeneration churn — fixing slot *i* creates a collision at slot *j* | Any check whose violation is a relation over slots; a fresh scenario can land on another slot's | Work bounded per slot but not per batch: worst case 3 × `BATCH_SIZE` = 27 constructions at N = 9 | **Partly.** Per-slot cap is FM-C-6 and holds. A batch-level cap is not specified — OQ-11 |
-| FM-10-4 | Threshold set below the pigeonhole floor | A "no label 3+ times" rule at m = 9 MCQ slots, where ⌈9/4⌉ = 3 | Every slot burns 3 regenerations, is accepted anyway, and the batch takes ~4× as long for zero effect | **No.** Any threshold must be ≥ ⌈m/4⌉ for the relevant label alphabet. §3 figures; blocked on OQ-6 |
-| FM-10-5 | Regeneration re-draws the slot's axis | Regeneration re-enters G5's construction path, which contains an axis-refit step | Batch axis-uniqueness (REQ-C-002/004) breaks, and the report's Axis Coverage silently misstates what was tested | **No.** Must be settled before stage 2 — OQ-10 |
-| FM-10-6 | G6 read as making G5 rule 3 optional | Two gates exist; the later one looks authoritative | Per-slot `internal-validation` is skipped or softened. This is the doctrine failure `CLAUDE.md` names | **No.** G6 text states explicitly that it runs strictly after, and adds to, the per-slot gate. G5 rule 3 is not edited |
-| FM-10-7 | Regenerated slot ships without atoms | Regeneration is implemented as a patch of the stem rather than a re-run of the construction sequence | Delivery falls back to authoring rationale live (REQ-C-015) and the reasoning cost silently returns — parent FM-C-3 | **No.** Regeneration re-runs the full sequence through `explanation-baking`; a slot is rewritten whole, never edited in place |
-| FM-10-8 | G6 findings rendered to the learner | A "pass" that finds problems defaults to reporting them | A collision report naming stems and keys leaks the answer key before trial 1 | **No.** Parent FM-C-2; `SKILL.md`'s never-render constraint already covers the artifact, and G6 adds no learner-visible output |
-| FM-10-9 | Latency compounds past FM-C-5's expectation | Up to 27 extra constructions at N = 9, on top of the 9 originals | The learner waits ~4× the already-accepted batch latency, with a single announcement made long before | **Accepted, measure.** No new announcement — the G1 line states no count and stays true. Stage 2 measures a worst-case batch |
-| FM-10-10 | The domain check overrides the learner's intake choice | The learner picked "Aviation" at I3; a variety check demands the batch not be uniformly aviation | The generator drifts off an explicitly chosen domain, contradicting `<domain-anchoring>` in all four prompts | **No.** Blocked on OQ-8. A check that overrides an explicit learner preference must not ship |
+| **FM-10-1** | **Distractor quality traded for distinctness under regeneration pressure** | A rejection mechanism rewards trials that are easy to make *different* over trials that are hard to answer | Distractors become rejectable on surface reading, invisibly — the trial that ships passed a distinctness check, not a difficulty check | **No, and structurally removed.** The re-scope deleted the mechanism: position is fixed by construction, so **nothing is regenerated for distinctness**. What regeneration remains (G6) fires on a *missing atom*, and #9's Gate-2 finding shows that pressure runs the right way — a weakened distractor has **no `viability_account` to write**, so softening makes the slot *harder* to ship, not easier. G6 states this in as many words |
+| FM-10-2 | Cap exhaustion ships a slot with incomplete atoms | 3 regenerations still incomplete | That slot's breakdown is authored live at delivery | **Accepted** — FM-C-6. REQ-C-015's fallback covers it with full coverage; only provenance degrades. Logged internally |
+| FM-10-3 | G6 regeneration churn | A rewritten slot fails the sweep again | Bounded: ≤3 per slot, ≤3 × `BATCH_SIZE` = 27 at N=9 | **Accepted.** Per-slot cap only; no batch-level cap needed, since G6's check is per-slot and a rewrite cannot invalidate another slot |
+| FM-10-4 | ~~Threshold below the pigeonhole floor~~ | ~~m=9 with a "no label 3+" rule~~ | ~~27 wasted constructions for zero effect~~ | **Moot** — no threshold exists. The clustering check is withdrawn; §3's figures are why |
+| FM-10-5 | Regeneration re-draws the slot's axis | Regeneration re-enters the construction path, which contains an axis-refit step | Batch axis-uniqueness (REQ-C-002/004) breaks; the report's Axis Coverage silently misstates what was tested | **No.** G6 step 1 holds `question_type`, `axis`, `axis_rejected` and the MCQ position explicitly, with the reason stated inline |
+| FM-10-6 | G6 read as making G5 rule 3 optional | Two gates exist; the later looks authoritative | Per-slot `internal-validation` skipped or softened — the doctrine failure `CLAUDE.md` names | **No.** G6 opens by stating it is a second gate, that G5 rule 3 is unchanged and primary, and that G6 never substitutes for it |
+| FM-10-7 | Regenerated slot's atoms patched rather than rebuilt | Regeneration implemented as filling in the missing field | The atom exists but was authored detached from the choice it describes — FM-9-4 by another route | **No.** G6 step 2 requires the slot be rewritten **whole** through `internal-validation` and `explanation-baking`; patching in place is forbidden by name |
+| FM-10-8 | G6 findings rendered to the learner | A "pass" that finds problems defaults to reporting them | A completeness report naming stems and keys leaks the answer key before trial 1 | **No.** Parent FM-C-2; G6 states it presents nothing and reports nothing |
+| FM-10-9 | The position draw is applied to non-MCQ slots | The draw sits in a per-slot loop | An Ordering slot gets a meaningless `key`, corrupting grading | **No.** G4 step 3 is explicitly gated "`mcq` slots only" and says "Skip this draw entirely" for the other three |
+| FM-10-10 | Pre-set `key` mistaken for a constructed answer | Pass 1 writes `key` before content exists | A reader assumes the correct answer's *content* was decided in Pass 1 | **No.** The Batch Artifact section states that the drawn label fixes the *position* and that Pass 2 constructs the choices around it. Nothing about choice content moves |
+| FM-10-11 | `SCRIPT_POSITION` unreachable on every call | Broken interpreter or missing script | The fallback fires on every slot: balance holds, but the *order* becomes the fixed cycle A, B, C, D, … | **Accepted, flagged.** REQ-MCQ-E-004 says so explicitly and tells the reader to treat it as a broken environment, not a normal path — the same discipline as the launcher note under File Path Constants |
 
 ---
 
@@ -225,36 +231,41 @@ or `internal-validation` item is weakened, reordered around, or made conditional
 
 | ID | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
-| R-10-1 | A stage-2 implementer closes an open question by picking a reasonable default | **Medium** | **High** — three of the fourteen change what ships to the learner | §8 is the stage-1 deliverable. Stage 2 does not begin until OQ-1, OQ-2, OQ-4…OQ-8, OQ-10, OQ-12 and OQ-13 are resolved by the coordinator |
-| R-10-2 | A tight threshold makes regeneration the normal path, not the exception | Medium | **High** | Measured: at m = 5, P(max ≥ 3) = 0.414. FM-10-1's pressure is proportional to how often G6 fires — the threshold decision *is* a difficulty decision, and OQ-6 must be answered with the §3 figures in hand |
-| R-10-3 | Schema drift — a `domain_anchor` field or a waiver field breaks #7's persistence shape | Medium | Medium | Parent declares field names binding. Both needs (OQ-8, OQ-12) are raised, not resolved; if a field is added it is added to the parent schema first |
-| R-10-4 | New text cites prompt step or line numbers, which #9 already shifted and #24 will shift again | Low | Medium | Citation-by-name discipline is a §4 decision. Plan 8 FM-8-2 set the precedent for exactly this reason |
-| R-10-5 | `SKILL.md` on-invoke cost grows; the file is read on every invocation | Realized | Low | Baseline measured: 10,929 tokens. Stage 2 measures the delta with `token-counter`, never estimates |
+| R-10-1 | `--assigned` diverges from the two sibling scripts' `--exclude` and a later reader "fixes" it | Medium | Medium | The divergence is deliberate and documented in the script docstring, §4, and §8 OQ-A. `--exclude` would be a lie: with >4 MCQ slots every position must recur, so nothing is excluded |
+| R-10-2 | ~~A tight threshold makes regeneration the norm~~ | — | — | **Moot** — the threshold and the check are withdrawn |
+| R-10-3 | Schema drift | **Closed** | — | No field added. The drawn position rides in the existing `key`; the cap-exhaustion log is internal only |
+| R-10-4 | New text cites prompt step or line numbers, which #9 already shifted and #24 will shift again | Low | Medium | Citation-by-name discipline applied throughout; verified — the new text names `position-assignment`, `internal-validation`, `explanation-baking` and no numbers |
+| R-10-5 | `SKILL.md` on-invoke cost | **Realized** | Low | +2,080 tokens (+19.0%), 10,929 → 13,009. Measured, not estimated. #6's gating is the structural relief |
 | R-10-6 | #6's split becomes non-mechanical | Low | Low | G6 is a `###` inside the existing Generation Phase `##` block; no section spans the phase boundary |
-| R-10-7 | G6 is written as prose judgment and becomes unverifiable, repeating the exact defect §2 identifies in the prompts' cross-trial rules | Medium | Medium | Each check must land as a stated, checkable predicate over artifact fields. A check that cannot be stated as a predicate is an open question, not an implementation detail |
+| R-10-7 | G6 written as prose judgment, hence unverifiable | **Closed** | — | Each of the six checks is a stated predicate over named artifact fields with explicit per-type counts |
+| R-10-8 | The model ignores the drawn position and places the correct answer elsewhere | Medium | Medium | Stated twice — Active Constraints ("Never assign an MCQ correct-answer position by judgment") and G5 rule 4. **Behavioral verification required** (§10 step 9); it cannot be confirmed by reading the diff |
 
 ---
 
 ## 8. Open questions
 
-**None are resolved.** Every one is a fork the inputs do not settle. Nine are hard blockers.
+Stage-1's 14 are all resolved or moot; the disposition is recorded so the withdrawal is visibly a
+decision rather than an omission.
+
+| Stage-1 # | Disposition |
+|---|---|
+| OQ-1, OQ-2, OQ-3, OQ-14 | **Dropped** — the scenario check is withdrawn as redundant (§0). Already gated in all four `<internal-validation>` checklists and by `<rule id="no-question-reuse">` |
+| OQ-6, OQ-7 | **Dropped** — the clustering check is withdrawn as statistically inert (§0, §3) |
+| OQ-8 | **Dropped** — domain-anchor variety is withdrawn as incoherent; it contradicts `<domain-anchoring>` and intake I3 |
+| OQ-4, OQ-5 | **Resolved** by scoping `SCRIPT_POSITION` to MCQ. Ordering and Matching have no assignable position; MSQ is OQ-B below |
+| OQ-9 | **Moot** — an atom sweep is per-slot, so the offending slot is never ambiguous |
+| OQ-10 | **Resolved: hold.** Type, axis and `axis_rejected` are preserved across regeneration |
+| OQ-11 | **Resolved:** per-slot cap of 3 stands; no batch-level cap |
+| OQ-12 | **Resolved:** internal only — no schema field, no report section |
+| OQ-13 | **Resolved:** it is now the substance of G6 |
+
+Carried forward:
 
 | # | Question | Blocker for? |
 |---|---|---|
-| OQ-1 | **"Repeated scenario" has no operational definition anywhere.** Two trials on one concept necessarily share the concept and, under a concrete I3 choice, the domain. `<scenario-freshness>` says "substantively distinct"; `<rule id="no-question-reuse">` forbids reuse of a wider, type-specific unit set (§3). Which does G6 enforce — the narrow "scenario" of REQ-C-008, the prompts' full non-reuse unit, or a new operational test (e.g. same setting + same actors + same triggering condition)? | G6 check 1. Stage 2 cannot write the check |
-| OQ-2 | **Which artifact field is compared, and it differs by type.** The artifact stores `stem`; it has no `scenario` field. The prompts' unit is the *scenario* (MCQ/MSQ), the *task scenario* (ORD), and the *case set* (MAT) — none of which is the whole stem. Is the comparison over `stem`, over `probe_target`, or over something not currently recorded? | G6 check 1 |
-| OQ-3 | **Is check 1 redundant with the per-slot gate?** Each prompt's `internal-validation` already carries "This scenario was not used in any prior trial or exchange this session", and under slot-order construction that is pairwise-backwards over the whole batch by induction. Is G6's scenario check intended as (a) deliberate redundancy against a judgment made under construction pressure, or (b) a genuinely different *aggregate* test — e.g. three trials that are each pairwise-fresh but collectively monotone? The two produce different checks and different firing rates | G6 check 1's framing; whether it can ever fire |
-| OQ-4 | **"Correct-answer letter/position" does not map onto Ordering or Matching.** Ordering's answer is a sequence; Matching's is an injective map. Neither has a "correct-answer letter". `<label-and-shuffle>` supplies a *candidate* cross-trial analogue in both — distractor-label placement ("do not cluster distractor letters at the end of the alphabet") — but that is not the correct answer's position. Does check 2 run on ORD/MAT slots at all, and if so against which property? | G6 check 2 on ORD and MAT slots |
-| OQ-5 | **MSQ's analogue is ambiguous.** `key` is a *set* of 1–4 labels from A–E, so there is no single position. Candidates: per-label appearance frequency across the batch's key sets; key **size** clustering (four trials all keyed 2-of-5 is a real pattern leak, and is named nowhere); the `<answer-position>` "top or bottom" framing; or all three | G6 check 2 on MSQ slots |
-| OQ-6 | **No clustering threshold exists.** All four prompt rules are qualitative — "do not consistently place", "do not cluster predictably". A batch check needs a decision rule. §3 shows the choice is consequential and constrained: any threshold must be ≥ the pigeonhole floor ⌈m/4⌉ or it is unsatisfiable, and a threshold of 3 fires on 41.4% of 5-slot MCQ batches. What is the rule, per type? | G6 check 2, all types. **Also gates R-10-2** |
-| OQ-7 | **Whole batch, or per-type sub-batches?** A 9-trial batch holds on average 2.25 MCQ slots. A letter-frequency check over "all slots" is not well-defined across four different label alphabets; a per-type check often runs on 1–3 slots, where clustering is close to meaningless (P(max ≥ 3) = 0.062 at m = 3). Which is it, and is there a minimum sub-count below which check 2 is skipped? | G6 check 2 |
-| OQ-8 | **"Domain-anchor variety" has no field, no rule, and a probable conflict.** (a) The artifact schema carries **no** domain-anchor field — confirmed against `SKILL.md`'s Batch Artifact block. (b) `DOMAIN` is a session constant from intake I3, and `<domain-anchoring>` tells every trial to use it — the corpus pushes toward *sameness*, and the only "change the domain anchor" instruction is session-level, for re-runs (MCQ:1036, MSQ:1113, MAT:1916). (c) When the learner picks a concrete domain, "variety" either contradicts I3 or must mean **operational-setting** variety *within* it — the reading MSQ:1113 hints at ("only the operational setting changes") and that I3's own option text enumerates ("NTSB causal chains, flight envelope, MRO operations"). (d) A Matching trial's prompts may **span several domains by design** (MAT:1285), so a matching slot has no single anchor. Options, none chosen: add a `domain_anchor` field (parent schema change); derive the anchor from `stem` at check time with no new field; scope the check to `DOMAIN = "No preference"` sessions only; or drop check 3 | **G6 check 3 entirely.** Highest-value question here |
-| OQ-9 | **Which slot is "the offending trial"?** REQ-C-009 says "the offending trial", singular, but a scenario repeat is a symmetric relation over two slots and a letter cluster is a property of a set of 3+. Does the later `trial_index` regenerate on seniority? For a cluster of *k*, do *k*−1 slots regenerate, or one, or the minimum needed to clear the threshold? | REQ-C-009 implementation |
-| OQ-10 | **Does regeneration hold `question_type` and `axis`?** Holding both is the conservative reading and mirrors G5's hold-and-reconstruct — but a scenario collision may be *caused* by the type+axis pairing, making 3 held attempts futile. Re-drawing the axis would break batch axis-uniqueness (REQ-C-002/004) and silently change the report's Axis Coverage. Also unspecified: what happens to `axis_rejected` on a regenerated slot | REQ-C-009 + REQ-C-002/004 interaction; **FM-10-5** |
-| OQ-11 | **Is there a batch-level regeneration cap?** FM-C-6 caps per slot at 3, bounding worst-case work at 3 × `BATCH_SIZE` = 27 constructions at N = 9. Fixing one slot can collide with another, so the pass can re-run many times within that bound. Is the per-slot cap the only cap, or is a batch-level ceiling wanted? | FM-C-6 completeness; FM-10-3 |
-| OQ-12 | **"Accept the trial and log internally" — log where?** The artifact has no field for a waived collision, and the report has no section for one. Adding a field (e.g. `consistency_waived`) is a parent-schema change and affects what #7 persists. Alternatively the log is transient reasoning with no record — in which case the waiver is invisible to #7 and to the report | FM-C-6 implementation; #7's persistence shape |
-| OQ-13 | **Parent-plan incoherence: is atom coverage a fourth G6 check?** Parent FM-C-3's disposition reads "REQ-C-006 coverage rule, **checked in the consistency pass**", and #9's FM-9-3 reads "`<emission-gate>` blocks output; **#10 re-checks over the batch**". Both assign a fourth check to #10 that **REQ-C-008 does not carry**. Worse, it conflicts with REQ-C-015: in the window where #8 has merged and #9 has not, every slot legitimately lacks atoms, and a coverage check would fail all of them and burn the cap on each. Is coverage a G6 check, and if so what does it do when atoms are absent by design? | G6 scope. Two plan rows currently promise a check REQ-C-008 does not authorize |
-| OQ-14 | **Does check 1's scope include non-trial exchanges?** The prompts' wording is "any prior trial **or exchange** in this session" — which reaches tangent-handling conversation and the intake exchange, neither of which is in the batch artifact. Does G6 compare slots against slots only, or is the exchange half simply out of reach for a batch-level check? | G6 check 1 scope |
+| OQ-A | `select_answer_position.py` takes **`--assigned`**, where `select_question_type.py` and `select_mcq_axis.py` take `--exclude`. Position assignment is a balancing problem, not an exclusion one — with >4 MCQ slots every position must recur, so an `--exclude` argument would not exclude, and the axis script's exhaustion-relaxation produces *unbalanced* draws, which is the opposite of what is wanted here. Recorded as a deliberate, documented divergence. Confirm, or direct a rename | Nothing — implemented and working. Interface-consistency review only |
+| OQ-B | **MSQ positional bias is unaddressed.** `<answer-position>` (MSQ:378) and step `position-assignment` carry the same ungated "vary across trials" instruction as MCQ, and MSQ has the same expected slot share. Its correct *set* is content-constrained, so a free draw is not available — but a draw over set **size**, or over which labels carry the key, may be. Explicitly out of scope per A-12 | A follow-up issue. Not this one |
+| OQ-C | **Ordering and Matching cross-trial `<label-and-shuffle>` variation stays ungated** (§3). "Do not cluster distractor letters at the end of the alphabet" is a real property with no checklist item and no script. Not in A-12's scope | A follow-up issue, if the leak is judged material |
 
 ---
 
@@ -262,36 +273,25 @@ or `internal-validation` item is weakened, reordered around, or made conditional
 
 | File | Operation | What | Why |
 |---|---|---|---|
-| `mcq-probe/skills/mcq-probe-0-router/SKILL.md` | Modify | New `### G6` after G5 (insert between lines 426 and 428); repoint line 426's "Proceed to the Delivery Loop" through G6; one Active Constraints bullet stating the pass and the 3-attempt cap; an Error Handling entry for cap exhaustion if OQ-12 lands there | REQ-C-008, REQ-C-009, FM-C-6 |
-| `mcq-probe/.claude-plugin/plugin.json` | Modify | `version` `1.1.0` → `1.2.0` | The plugin installs as a version-keyed cache copy and will not re-sync without a bump (#18 OQ-1) |
-| `plans/10-cross-trial-consistency-pass.md` | Create | This document | Repo precedent (#2, #3, #5, #8, #9, #18) |
-| `mcq-probe/skills/mcq-probe-0-router/prompts/*.md` | **None** | — | #9 just landed there; #24 restructures. Out of scope by directive |
-| `mcq-probe/skills/mcq-probe-0-router/scripts/*.py` | **None** | — | G6 adds no draw and changes no selector behavior |
+| `mcq-probe/skills/mcq-probe-0-router/scripts/select_answer_position.py` | **Create** | Balanced MCQ correct-answer position draw; `--assigned`; exit 0/1; unknown-label error | REQ-C-016 |
+| `mcq-probe/skills/mcq-probe-0-router/SKILL.md` | Modify | `SCRIPT_POSITION` constant + environment-note bullet ("six paths" → "seven"); 2 Active Constraints bullets; Batch Artifact note on the pre-drawn MCQ `key`; G4 heading + step 3; G5 rule 4 (three rules → four); **new `### G6`**; line-426 repoint; Error Handling `REQ-MCQ-E-004` | REQ-C-016, REQ-C-017, REQ-C-009, FM-C-6 |
+| `mcq-probe/.claude-plugin/plugin.json` | Modify | `1.1.0` → `1.2.0` | Version-keyed cache; the plugin will not re-sync without it (#18 OQ-1) |
+| `plans/5-frontload-question-generation.md` | Modify | Amendment **A-12** appended verbatim; REQ-C-008 struck in the Requirements table and REQ-C-016 / REQ-C-017 registered | The parent must not still read REQ-C-008 as live while `SKILL.md` cites IDs that appear nowhere in it |
+| `plans/10-cross-trial-consistency-pass.md` | Modify | This document, rewritten for the re-scope | Traceability |
+| `mcq-probe/skills/mcq-probe-0-router/prompts/*.md` | **None** | — | #9 landed there; #24 restructures. Zero bytes changed |
 
 ---
 
 ## 10. Implementation order
 
-Stage 1 ends at step 1. **Steps 2–9 do not begin without an explicit execute signal.**
+Steps 1–8 executed. Step 9 is a post-merge behavioral gate.
 
-1. **Resolve §8 with the coordinator.** Hard blockers: OQ-1, OQ-2, OQ-4, OQ-5, OQ-6, OQ-7, OQ-8,
-   OQ-10, OQ-13. OQ-3, OQ-9, OQ-11, OQ-12 and OQ-14 shape the text but do not prevent it.
-   Amendments to the parent plan (schema field, or REQ-C-008 scope) land there first, not here.
-2. Write `### G6` as a numbered step list: the enumerated checks, the per-check predicate, the
-   offending-slot rule, regeneration, the 3-attempt cap, the accept-and-log terminal, and the
-   re-run. Prompt elements cited **by name only**.
-3. Repoint `SKILL.md`:426 so control reaches the Delivery Loop through G6, not around it.
-4. Add the Active Constraints bullet, and the Error Handling entry if OQ-12 requires one.
-5. Bump `plugin.json` to `1.2.0`.
-6. **Gate 1 — the anti-softening diff gate.** Verify mechanically that no `internal-validation`
-   item, viability rule, pool/grid law, required construct, or banned-language list changed —
-   `git diff` must show zero bytes altered under `prompts/`, and no edit to G5 rule 3. FM-10-1,
-   FM-10-6. **Non-delegable.**
-7. **Gate 2 — behavioral, post-merge.** Re-sync the plugin cache, restart, run a bounded session
-   at N = 5 and confirm: (a) nothing is presented until G6 completes; (b) G6 emits nothing to the
-   learner; (c) a regenerated slot carries a full `explanation` block; (d) axes stay unique
-   across slots after any regeneration; (e) no artifact content leaks. Cannot be satisfied by
-   reading the diff.
-8. **Measure.** `SKILL.md` delta against the 10,929-token baseline with `token-counter`, and the
-   worst-case regeneration latency at N = 9 (FM-10-9). Figures, never estimates.
-9. Report the measurements and any check that fired in the dry run, with its threshold.
+1. Coordinator resolutions received; #10 re-scoped; A-12 authored.
+2. `select_answer_position.py` written and smoke-tested — first slot, partial batch, full cycle, unknown label, unknown argument.
+3. Balance verified over 20,000 simulated batches at m = 3, 5, 9, 10 (§3).
+4. `SKILL.md` — `SCRIPT_POSITION` constant, environment-note bullet, "six paths" → "seven".
+5. `SKILL.md` — Active Constraints: position-draw bullet and G6 bullet.
+6. `SKILL.md` — Batch Artifact note; G4 heading and step 3; G5 rule 4; **`### G6`**; line-426 repoint; `REQ-MCQ-E-004`.
+7. `plugin.json` → `1.2.0`; parent plan amended.
+8. **Gate 1 — the anti-softening diff gate. Passed.** `git diff --stat` shows zero bytes changed under `prompts/`; no `internal-validation` item, viability rule, pool/grid law, required construct or banned-language list touched; G5 rule 3 unedited; no prompt step or line number cited in new text. **Non-delegable.**
+9. **Gate 2 — behavioral, post-merge.** Re-sync the plugin cache, restart, run a bounded session and confirm: (a) the correct answer lands at the drawn label on every MCQ slot (R-10-8 — the one risk a diff cannot close); (b) nothing is presented until G6 completes; (c) G6 emits nothing to the learner; (d) axes stay unique after any regeneration; (e) a wrong answer's breakdown covers every choice not in the key.
