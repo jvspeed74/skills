@@ -29,6 +29,9 @@ SCRIPT_TYPE = /mnt/skills/user/mcq-probe/scripts/select_question_type.py
 # Invoke via: python [SCRIPT_AXIS] [args]
 SCRIPT_AXIS = /mnt/skills/user/mcq-probe/scripts/select_mcq_axis.py
 
+# Invoke via: python [SCRIPT_POSITION] [args]
+SCRIPT_POSITION = /mnt/skills/user/mcq-probe/scripts/select_answer_position.py
+
 # Read via the Read tool
 MCQ_PROMPT      = /mnt/skills/user/mcq-probe/prompts/MCQ_GENERATION_PROMPT.md
 MSQ_PROMPT      = /mnt/skills/user/mcq-probe/prompts/MSQ_GENERATION_PROMPT.md
@@ -36,13 +39,14 @@ ORDERING_PROMPT = /mnt/skills/user/mcq-probe/prompts/ORDERING_GENERATION_PROMPT.
 MATCHING_PROMPT = /mnt/skills/user/mcq-probe/prompts/MATCHING_GENERATION_PROMPT.md
 ```
 
-**Environment note:** The six paths above are hosted-sandbox (Claude.ai Skills) conventions,
+**Environment note:** The seven paths above are hosted-sandbox (Claude.ai Skills) conventions,
 where they are correct and must be used as written. When this skill runs under Claude Code as
 part of the `mcq-probe` plugin bundle, resolve all six relative to `${CLAUDE_PLUGIN_ROOT}`
 instead:
 
 - `SCRIPT_TYPE` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_question_type.py`
 - `SCRIPT_AXIS` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_mcq_axis.py`
+- `SCRIPT_POSITION` → `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/scripts/select_answer_position.py`
 - `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, `MATCHING_PROMPT` →
   `${CLAUDE_PLUGIN_ROOT}/skills/mcq-probe-0-router/prompts/<same filename>`
 
@@ -72,11 +76,13 @@ These are binding. They do not yield to judgment calls.
 - Load `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT` once, at the start of the Generation Phase, before any slot's content is constructed. If any is unreadable: halt — REQ-MCQ-E-001 / REQ-MAT-E-001.
 - Call `SCRIPT_TYPE` once per slot in Pass 1 to determine the question type (mcq, msq, ordering, or matching). If Step I5 (procedural determination) determined the concept is non-procedural, include `ordering` in that call's `--exclude`. If Step I6 (matchable determination) determined the concept is non-matchable, include `matching` in that call's `--exclude` — REQ-ORD-F-010, REQ-MAT-F-010. These excludes combine (comma-joined) when both gates fire; if that leaves only `mcq`/`msq`, the draw proceeds from those.
 - Call `SCRIPT_AXIS` once per slot in Pass 1. Pass every axis already assigned to an earlier slot as `--exclude`, in assignment order — REQ-C-002.
+- Call `SCRIPT_POSITION` once per **MCQ** slot in Pass 1. Pass every position already assigned to an earlier MCQ slot as `--assigned`, in assignment order. The drawn label is the slot's `key`, and Pass 2 constructs the choices around it — REQ-C-016. Never assign an MCQ correct-answer position by judgment; that is the bias this script exists to remove. Ordering and Matching have no assignable position, and MSQ is out of scope.
 - For an ordering slot, if the assigned axis cannot force the slot's order, re-draw via `SCRIPT_AXIS` in Pass 2 — drawing only from axes assigned to no other slot and not already rejected for this slot — up to 3 attempts; on exhaustion, hold the axis and reconstruct the scenario. Never substitute the trial type — REQ-ORD-E-003, REQ-C-003.
 - For a matching slot, if the assigned axis cannot make the slot's grid projection-resolvable, re-draw on the same terms, up to 3 attempts; on exhaustion, hold the axis and reconstruct the case-set. Never substitute the trial type — REQ-MAT-E-003, REQ-C-003.
 - A rejected axis is **not** added to the session's used-axes list. It is recorded on its own slot only and stays drawable by any other slot — REQ-C-004.
 - The batch artifact is **internal**. Never render it, quote it, summarize it, or acknowledge its existence to the learner. Same discipline as the Probe Target descriptor.
 - In Pass 2: generate the **Probe Target** descriptor for each slot internally (≤6 words) and store it on the slot. Never reveal it during delivery — it appears only in the report.
+- After the last slot is written, run the **consistency pass** (G6) over the finalized batch: every slot's `explanation` block must be complete against its type's coverage rule. An incomplete slot is regenerated — holding its `question_type`, `axis`, `axis_rejected`, and, for MCQ, its Pass-1 position — up to 3 attempts, then accepted and logged internally — REQ-C-017, REQ-C-009. G6 is a **second** gate: the per-slot internal-validation checklist in G5 rule 3 remains the primary one and is never bypassed, softened, or reordered around.
 - The Delivery Loop assembles each breakdown from the slot's stored explanation atoms. It authors no new rationale and reads no generation prompt — REQ-C-010. Where atoms are absent it falls back to authoring from the Response Protocol prose — REQ-C-015.
 - Run all N trials regardless of intermediate performance. No early termination.
 - Do not display trial numbers, scores, running totals, or the batch size to the learner at any point during generation or delivery.
@@ -301,6 +307,12 @@ Type-specific shapes:
 | ordering | pool of labels; K disclosed, D hidden | ordered list of labels | the D distractor pool labels (1–3) | `{"adjacency_forcings": [str], "reverse_order_failures": [str]}` — K−1 forcings, ≥2 reverse-order failures |
 | matching | `1…n` prompts + `A…m` responses | injective prompt→response map | the D unused response labels (1–3) | `{<prompt label>: str}` — one per pairing (3–7) |
 
+**The MCQ `key` is drawn, not chosen.** For an `mcq` slot the correct-answer position is drawn by
+`SCRIPT_POSITION` in Pass 1 and written straight to `key` — for MCQ the key label *is* the
+correct answer's position, so no additional field is needed and the schema is unchanged. Pass 2
+then constructs the four choices around that fixed label. For every other type `key` is Pass 2
+output as before.
+
 **Coverage rule.** `distractor_failures` must carry an entry for **every choice not in the key**.
 A missing entry is a construction defect: delivery would have to author that rationale live,
 which is the cost this structure exists to remove.
@@ -337,9 +349,10 @@ delivery.
 This load precedes Pass 2 because Pass 2's axis-fit checks are defined inside `ORDERING_PROMPT`
 and `MATCHING_PROMPT` — they cannot be run against a file that has not been read.
 
-### G4. Pass 1 — type and axis for every slot
+### G4. Pass 1 — type, axis, and MCQ answer position for every slot
 
-Draw type and axis for all `BATCH_SIZE` slots **before constructing any content** — REQ-C-002.
+Draw type and axis for all `BATCH_SIZE` slots, and the correct-answer position for every `mcq`
+slot, **before constructing any content** — REQ-C-002, REQ-C-016.
 
 For each slot `i` from 0 to `BATCH_SIZE − 1`, in order:
 
@@ -372,15 +385,32 @@ Omit `--exclude` for slot 0 (no axes assigned yet).
 - Exit code 0: use the printed axis for this slot. Store as `axis`.
 - Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not yet assigned to a slot. Log the fallback internally — REQ-MCQ-E-002.
 
-At the end of Pass 1 every slot holds a `question_type` and an `axis`, and no axis is assigned to
-two slots. Nothing has been constructed. Nothing has been presented.
+**3. Correct-answer position — `mcq` slots only.** Invoke:
+```
+python SCRIPT_POSITION --assigned [comma-delimited list of the positions assigned to this batch's earlier MCQ slots, in assignment order]
+```
+
+Omit `--assigned` for the batch's first MCQ slot. Skip this draw entirely for `msq`, `ordering`,
+and `matching` slots.
+
+- Exit code 0: use the printed label (`A`, `B`, `C`, or `D`) as this slot's `key`.
+- Exit code non-zero: assign the label used by the fewest of this batch's earlier MCQ slots, breaking ties in `A, B, C, D` order. Log the fallback internally — REQ-MCQ-E-004.
+
+The draw is uniform over the least-used positions, so the correct answer's position is balanced
+across the batch's MCQ slots by construction. This is why `MCQ_PROMPT`'s `position-assignment`
+step is not left to judgment — positional bias is fixed here, at the draw, and never by
+regenerating a finished trial — REQ-C-016.
+
+At the end of Pass 1 every slot holds a `question_type` and an `axis`, no axis is assigned to
+two slots, and every `mcq` slot holds its `key`. Nothing has been constructed. Nothing has been
+presented.
 
 ### G5. Pass 2 — content, slot by slot
 
 For each slot in `trial_index` order, construct its content and write it into the artifact.
 
 The construction sequence in the prompt matching the slot's `question_type` — `MCQ_PROMPT`,
-`MSQ_PROMPT`, `ORDERING_PROMPT`, or `MATCHING_PROMPT` — governs construction unchanged. Three
+`MSQ_PROMPT`, `ORDERING_PROMPT`, or `MATCHING_PROMPT` — governs construction unchanged. Four
 orchestration-level rules apply on top of it:
 
 **1. The prompt's `output` step is suppressed.** That step presents the question to the learner
@@ -414,6 +444,13 @@ viable in isolation and fail **only** under forward projection along the slot's 
 changes *when* a trial is built — never *what it must satisfy*. An atom that is hard to write is
 evidence of a defective choice; regenerate the choice, never soften it.
 
+**4. An MCQ slot's correct-answer position is already fixed.** `MCQ_PROMPT`'s
+`position-assignment` step still runs, but its choice is made: place the correct answer at the
+label already in the slot's `key` from Pass 1, and distribute the other three around it. Do not
+re-assign, and do not vary it by judgment — REQ-C-016. This constrains **where** the correct
+answer sits, never **what** any choice must satisfy: the near-duplicate pair, the
+orthodox-but-wrong choice, and the independent viability of all four are unchanged.
+
 After construction and validation, per slot:
 
 **Probe Target.** Generate the descriptor: ≤6 words naming the specific aspect of the concept
@@ -423,7 +460,52 @@ procedure aspect ("Dual-write ordering before backfill"). For matching, the disc
 
 **Write the slot** into the batch artifact, with `grade` and `gap_summary` null.
 
-When every slot is written, the batch is complete. Proceed to the Delivery Loop.
+When every slot is written, proceed to G6. The batch is not final until G6 has passed it.
+
+### G6. Consistency pass — atom completeness
+
+Runs **once**, after G5 writes the last slot, before any trial is presented — REQ-C-017. It
+sweeps the finalized batch and verifies that every slot's `explanation` block is complete. It
+presents nothing, and it reports nothing to the learner.
+
+**G6 is a second gate, never a substitute.** The type's `internal-validation` checklist has
+already gated every slot at G5 rule 3, before that slot was written. That gate is unchanged, is
+never skipped because G6 exists, and remains the primary one. G6 checks a property no per-slot
+gate can see: that the batch as delivered carries, for every slot, the rationale delivery is
+required to assemble rather than author — REQ-C-010. A gap here is invisible at delivery, which
+silently falls back to authoring live (REQ-C-015) and returns the reasoning cost this feature
+exists to move — FM-C-3.
+
+**Sweep.** For each slot in `trial_index` order, check its `explanation` block against the
+coverage rule for the slot's `question_type` (Batch Artifact, type-specific table):
+
+1. **`axis_statement`** — present and non-empty: one sentence naming what this slot's `axis` tests in this scenario.
+2. **`key_survival`** — present, in the type-specific shape, with every graded unit carrying its own entry and none merged: MCQ 1 entry for the key label; MSQ one per correct label; Ordering `adjacency_forcings` with K−1 entries and `reverse_order_failures` with at least 2; Matching one entry per pairing, 3–7.
+3. **`distractor_failures`** — one entry for **every choice not in the key**, and no entry for a choice that is in it: MCQ the 3 non-key labels; MSQ every label not in the key (1–4); Ordering the D distractor pool labels (1–3); Matching the D unused response labels (1–3).
+4. **Each `distractor_failures` entry** — `failure` non-empty and naming the point where the choice fails under the axis, not restating the conclusion; `viability_account` non-empty, distinct from `failure`, and accounting for why the choice reads as correct on first pass; `orthodox_but_wrong` a boolean; `near_duplicate_of` a choice label or null.
+5. **`orthodox_but_wrong`** — true on at least one entry (exactly one for MCQ).
+6. **`near_duplicate_differentiators`** — present as a list, and non-empty whenever any entry's `near_duplicate_of` is non-null. `near_duplicate_of` names a **choice** label and may be a correct-answer label — do not dereference it as a `distractor_failures` key when checking it.
+
+A slot that passes every check is **untouched**. Do not re-word, re-balance, or "improve" a
+complete slot.
+
+**Regeneration — the offending slot only** (REQ-C-009). A slot failing any check is regenerated:
+
+1. **Hold** the slot's `question_type`, `axis`, and `axis_rejected`. Do not re-draw any of them: a re-drawn axis would break the batch's axis uniqueness (REQ-C-002, REQ-C-004) and silently misstate the report's Axis Coverage. For an `mcq` slot, hold the Pass-1 correct-answer position in `key` as well.
+2. **Reconstruct the slot whole** through the type's prompt — the same construction sequence Pass 2 runs, through `internal-validation` and `explanation-baking`, under the same four orchestration rules. Never patch a missing atom onto a slot that stands: a slot is rewritten, never edited in place.
+3. **The bar is identical.** A regenerated slot clears the same `internal-validation` checklist as an original, with **no allowance made because it is a retry**. A missing or unwritable atom is evidence of a defect in the *choice*, not in the atom — regenerate the choice under the existing viability rule. Never soften a choice, loosen a distractor, or simplify a scenario to make an atom easier to write. Every wrong answer must still be independently viable in isolation and fail **only** under forward projection along the slot's axis.
+4. **Overwrite** the slot in the batch artifact, with `grade` and `gap_summary` null.
+5. **Re-run G6** over the batch.
+
+**Cap: 3 regeneration attempts per slot** — FM-C-6, mirroring the Pass-2 refit convention. On
+exhaustion, accept the slot as it stands and log the acceptance internally. Never expose it, and
+never let it change what is presented: delivery's atoms-absent fallback (REQ-C-015) covers the
+residue correctly, so an accepted slot degrades the breakdown's provenance, not its coverage.
+
+The cap is per slot. It bounds the pass without a batch-level ceiling.
+
+When every slot has passed, or has been accepted under the cap, the batch is final. Proceed to
+the Delivery Loop.
 
 ---
 
@@ -912,6 +994,17 @@ Generation continues normally.
 
 Applies per slot, during Pass 1. Default to `mcq` for that slot. Log the fallback internally —
 do not expose it to the learner. Generation continues normally.
+
+### REQ-MCQ-E-004 — SCRIPT_POSITION non-zero exit
+
+Applies per `mcq` slot, during Pass 1. Assign the position used by the fewest of this batch's
+earlier MCQ slots, breaking ties in `A, B, C, D` order. Log the fallback internally — do not
+expose it to the learner. Generation continues normally.
+
+This fallback keeps the batch balanced but makes the *order* of positions predictable while the
+script is unreachable, which the draw itself is not. Treat a firing of this fallback as a broken
+interpreter or a missing script, not as a normal path — see the launcher note under File Path
+Constants.
 
 ### REQ-ORD-E-002 — Invalid ordering response
 
