@@ -76,7 +76,7 @@ These are binding. They do not yield to judgment calls.
 - Load `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT` once, at the start of the Generation Phase, before any slot's content is constructed. If any is unreadable: halt — REQ-MCQ-E-001 / REQ-MAT-E-001.
 - Call `SCRIPT_TYPE` once per slot in Pass 1 to determine the question type (mcq, msq, ordering, or matching). If Step I5 (procedural determination) determined the concept is non-procedural, include `ordering` in that call's `--exclude`. If Step I6 (matchable determination) determined the concept is non-matchable, include `matching` in that call's `--exclude` — REQ-ORD-F-010, REQ-MAT-F-010. These excludes combine (comma-joined) when both gates fire; if that leaves only `mcq`/`msq`, the draw proceeds from those.
 - Call `SCRIPT_AXIS` once per slot in Pass 1. Pass every axis already assigned to an earlier slot as `--exclude`, in assignment order — REQ-C-002.
-- A `matching` slot never takes the `transfer` axis. Add `transfer` to that slot's `--exclude`; Matching draws from the remaining eight — REQ-MAT-F-021. When `transfer` is the only axis left, it stays unassigned for the batch and Axis Coverage reports it untested.
+- A `matching` slot never takes the `transfer` axis. Add `transfer` to that slot's `--exclude`; Matching draws from the remaining eight — REQ-MAT-F-022. When `transfer` is the only axis left, it stays unassigned for the batch and Axis Coverage reports it untested.
 - Call `SCRIPT_POSITION` once per **MCQ** slot in Pass 1. Pass every position already assigned to an earlier MCQ slot as `--assigned`, in assignment order. The drawn label is the slot's `key`, and Pass 2 constructs the choices around it — REQ-C-016. Never assign an MCQ correct-answer position by judgment; that is the bias this script exists to remove. Ordering and Matching have no assignable position, and MSQ is out of scope.
 - For an ordering slot, if the assigned axis cannot force the slot's order, re-draw via `SCRIPT_AXIS` in Pass 2 — drawing only from axes assigned to no other slot and not already rejected for this slot — up to 3 attempts; on exhaustion, hold the axis and reconstruct the scenario. Never substitute the trial type — REQ-ORD-E-003, REQ-C-003.
 - For a matching slot, if the assigned axis cannot make the slot's grid projection-resolvable, re-draw on the same terms, up to 3 attempts; on exhaustion, hold the axis and reconstruct the case-set. Never substitute the trial type — REQ-MAT-E-003, REQ-C-003.
@@ -381,7 +381,7 @@ string on every slot's draw.
 python SCRIPT_AXIS --exclude [comma-delimited list of the axes assigned to slots 0…i−1, in assignment order]
 ```
 
-Omit `--exclude` for slot 0 (no axes assigned yet). For a `matching` slot, add `transfer` to the exclude list — REQ-MAT-F-021.
+Omit `--exclude` for slot 0 (no axes assigned yet). For a `matching` slot, add `transfer` to the exclude list — REQ-MAT-F-022.
 
 - Exit code 0: use the printed axis for this slot. Store as `axis`. If the slot is `matching` and the printed axis is `transfer`, re-invoke with `transfer` excluded and no other change.
 - Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not yet assigned to a slot, skipping `transfer` for a `matching` slot. Log the fallback internally — REQ-MCQ-E-002.
