@@ -68,15 +68,18 @@ Every reference to these paths in the rest of this file is by constant name (`SC
 
 These are binding. They do not yield to judgment calls.
 
-- Load `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT` on Trial 1, before any trial is generated. If any is unreadable: halt — REQ-MCQ-E-001 / REQ-MAT-E-001.
-- Call `SCRIPT_TYPE` before every trial to determine the question type (mcq, msq, ordering, or matching). If Step I5 (procedural determination) determined the concept is non-procedural, include `ordering` in that call's `--exclude`. If Step I6 (matchable determination) determined the concept is non-matchable, include `matching` in that call's `--exclude` — REQ-ORD-F-010, REQ-MAT-F-010. These excludes combine (comma-joined) when both gates fire; if that leaves only `mcq`/`msq`, the draw proceeds from those.
-- Call `SCRIPT_AXIS` before every trial. Pass all axes used so far as `--exclude`, in order used.
-- For an ordering trial, if the assigned axis cannot force the trial's order, re-draw via `SCRIPT_AXIS` (excluding used + rejected axes), up to 3 attempts; on exhaustion, hold the axis and reconstruct the scenario. Never substitute the trial type — REQ-ORD-E-003.
-- For a matching trial, if the assigned axis cannot make the trial's grid projection-resolvable, re-draw via `SCRIPT_AXIS` (excluding used + rejected axes), up to 3 attempts; on exhaustion, hold the axis and reconstruct the case-set. Never substitute the trial type — REQ-MAT-E-003.
-- Generate one trial at a time. Present it. Wait for response. Evaluate. Then call the scripts for the next trial's type and axis.
-- After each trial: generate the **Probe Target** descriptor internally (≤6 words). Never reveal it during the trial — it appears only in the report.
+- Generate the **entire batch before presenting any trial** — REQ-C-001. The Generation Phase runs once, produces the batch artifact, and only then does the Delivery Loop begin.
+- Load `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT` once, at the start of the Generation Phase, before any slot's content is constructed. If any is unreadable: halt — REQ-MCQ-E-001 / REQ-MAT-E-001.
+- Call `SCRIPT_TYPE` once per slot in Pass 1 to determine the question type (mcq, msq, ordering, or matching). If Step I5 (procedural determination) determined the concept is non-procedural, include `ordering` in that call's `--exclude`. If Step I6 (matchable determination) determined the concept is non-matchable, include `matching` in that call's `--exclude` — REQ-ORD-F-010, REQ-MAT-F-010. These excludes combine (comma-joined) when both gates fire; if that leaves only `mcq`/`msq`, the draw proceeds from those.
+- Call `SCRIPT_AXIS` once per slot in Pass 1. Pass every axis already assigned to an earlier slot as `--exclude`, in assignment order — REQ-C-002.
+- For an ordering slot, if the assigned axis cannot force the slot's order, re-draw via `SCRIPT_AXIS` in Pass 2 — drawing only from axes assigned to no other slot and not already rejected for this slot — up to 3 attempts; on exhaustion, hold the axis and reconstruct the scenario. Never substitute the trial type — REQ-ORD-E-003, REQ-C-003.
+- For a matching slot, if the assigned axis cannot make the slot's grid projection-resolvable, re-draw on the same terms, up to 3 attempts; on exhaustion, hold the axis and reconstruct the case-set. Never substitute the trial type — REQ-MAT-E-003, REQ-C-003.
+- A rejected axis is **not** added to the session's used-axes list. It is recorded on its own slot only and stays drawable by any other slot — REQ-C-004.
+- The batch artifact is **internal**. Never render it, quote it, summarize it, or acknowledge its existence to the learner. Same discipline as the Probe Target descriptor.
+- In Pass 2: generate the **Probe Target** descriptor for each slot internally (≤6 words) and store it on the slot. Never reveal it during delivery — it appears only in the report.
+- The Delivery Loop assembles each breakdown from the slot's stored explanation atoms. It authors no new rationale and reads no generation prompt — REQ-C-010. Where atoms are absent it falls back to authoring from the Response Protocol prose — REQ-C-015.
 - Run all N trials regardless of intermediate performance. No early termination.
-- Do not display trial numbers, scores, or running totals to the learner during the trial loop.
+- Do not display trial numbers, scores, running totals, or the batch size to the learner at any point during generation or delivery.
 - After trial N — or if the learner requests the report early — run the analysis phase and output the report.
 
 ---
@@ -126,6 +129,10 @@ Invoke AskUserQuestion with:
 
 "Other" captures any custom integer. If the learner enters a value outside 1–9,
 ask them to choose a value in that range. Store as N.
+
+Set `BATCH_SIZE = N`. A bounded session generates exactly one batch — `batch_index: 0` —
+holding every trial of the session. `BATCH_SIZE` is the only knob the Generation Phase reads;
+nothing else in this file assumes one batch.
 
 ### Step I3 — Domain preference (AskUserQuestion)
 
@@ -204,8 +211,8 @@ Store the result as `PROCEDURAL` (yes/no) — REQ-ORD-F-010.
   session. Call `SCRIPT_TYPE` with `--exclude ordering` (or `--exclude ordering,matching`
   if Step I6 also excludes matching) on every trial this session, so `ordering` is
   never drawn.
-- If **yes**: no exclusion is applied at intake on `ordering`'s account. A trial-level
-  axis re-draw may still apply once an `ordering` trial is drawn — see Trial Loop, Step 2.
+- If **yes**: no exclusion is applied at intake on `ordering`'s account. A slot-level
+  axis re-draw may still apply once an `ordering` slot is drawn — see Generation Phase, Pass 2.
 
 ### Step I6 — Matchable determination (internal)
 
@@ -222,8 +229,8 @@ Store the result as `MATCHABLE` (yes/no) — REQ-MAT-F-010.
   session. Call `SCRIPT_TYPE` with `--exclude matching` (or `--exclude ordering,matching`
   if Step I5 also excludes ordering) on every trial this session, so `matching` is
   never drawn.
-- If **yes**: no exclusion is applied at intake on `matching`'s account. A trial-level
-  axis re-draw may still apply once a `matching` trial is drawn — see Trial Loop, Step 2.
+- If **yes**: no exclusion is applied at intake on `matching`'s account. A slot-level
+  axis re-draw may still apply once a `matching` slot is drawn — see Generation Phase, Pass 2.
 
 **Excludes combine.** `PROCEDURAL` = no and `MATCHABLE` = no are independent
 determinations and may both fire on the same concept (a flat, non-procedural concept).
@@ -233,130 +240,285 @@ REQ-MAT-F-010.
 
 ---
 
-## Trial Loop
+## Batch Artifact
 
-Execute for each trial 1 through N.
+The Generation Phase produces this structure; the Delivery Loop consumes it. It is held **in
+context only** — there is no file, no path constant, and no writer script.
 
-### 1. Question type selection
+**Never render it.** No part of it — a stem before its turn, a key, an atom, a probe target, the
+batch size, or the fact that a batch exists — is shown to the learner at any point. It is
+internal state, exactly like the Probe Target descriptor. Leaking it before delivery hands the
+learner the answer key to the whole session.
 
-Invoke:
+One JSON object per trial — REQ-C-013:
+
+```json
+{
+  "batch_index": 0,
+  "generated_at": "<timestamp>",
+  "trials": [
+    {
+      "trial_index": 0,
+      "question_type": "mcq | msq | ordering | matching",
+      "axis": "<the finally-used axis, post-refit>",
+      "axis_rejected": ["<axis>"],
+      "probe_target": "<=6 words, internal only>",
+      "stem": "...",
+      "choices": {},
+      "key": null,
+      "explanation": {
+        "axis_statement": "what this axis tests in this scenario — one sentence",
+        "key_survival": {},
+        "distractor_failures": {
+          "<label>": {
+            "failure": "the specific point where it fails under the axis",
+            "viability_account": "why it reads as correct on first pass",
+            "orthodox_but_wrong": false,
+            "near_duplicate_of": "<choice label> | null"
+          }
+        },
+        "near_duplicate_differentiators": []
+      },
+      "grade": null,
+      "gap_summary": null
+    }
+  ]
+}
+```
+
+`grade` and `gap_summary` are **delivery-time** fields — null at generation, written by the
+Delivery Loop after the learner answers.
+
+`near_duplicate_of` names a **choice label**, and that label may be a correct-answer label. It is
+therefore not necessarily a key in `distractor_failures` — do not dereference it as one.
+
+Type-specific shapes:
+
+| Type | `choices` | `key` | `distractor_failures` keys | `key_survival` |
+|---|---|---|---|---|
+| mcq | A–D | one label | the 3 labels not in `key` | `{<key label>: str}` — 1 entry |
+| msq | A–E | set of labels | every label not in `key` (1–4) | `{<label>: str}` — one per correct label |
+| ordering | pool of labels; K disclosed, D hidden | ordered list of labels | the D distractor pool labels (1–3) | `{"adjacency_forcings": [str], "reverse_order_failures": [str]}` — K−1 forcings, ≥2 reverse-order failures |
+| matching | `1…n` prompts + `A…m` responses | injective prompt→response map | the D unused response labels (1–3) | `{<prompt label>: str}` — one per pairing (3–7) |
+
+**Coverage rule.** `distractor_failures` must carry an entry for **every choice not in the key**.
+A missing entry is a construction defect: delivery would have to author that rationale live,
+which is the cost this structure exists to remove.
+
+---
+
+## Generation Phase
+
+Runs **once**, after intake, before any trial is presented — REQ-C-001. It produces the batch
+artifact and presents nothing.
+
+### G1. Announce
+
+Tell the learner that trials are being prepared, in one short line — e.g. "Preparing your
+trials — one moment." Generation is never silent — REQ-C-011.
+
+State no count. The batch size is a trial number by another name, and trial numbers are not
+shown to the learner.
+
+### G2. Batch size
+
+`BATCH_SIZE = N`, set at Step I2. A bounded session generates exactly one batch, `batch_index: 0`.
+
+### G3. Prompt load
+
+Read `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT`.
+
+If any is unreadable: halt immediately — REQ-MCQ-E-001 / REQ-ORD-E-001 / REQ-MAT-E-001. The halt
+fires here, before any content is constructed.
+
+Retain all four in context for the whole session. Do not reload, and do not re-read them during
+delivery.
+
+This load precedes Pass 2 because Pass 2's axis-fit checks are defined inside `ORDERING_PROMPT`
+and `MATCHING_PROMPT` — they cannot be run against a file that has not been read.
+
+### G4. Pass 1 — type and axis for every slot
+
+Draw type and axis for all `BATCH_SIZE` slots **before constructing any content** — REQ-C-002.
+
+For each slot `i` from 0 to `BATCH_SIZE − 1`, in order:
+
+**1. Question type.** Invoke:
 ```
 python SCRIPT_TYPE
 ```
 
-If Step I5 and/or Step I6 excluded a type (`PROCEDURAL` = no and/or `MATCHABLE` = no),
-invoke instead with the applicable type(s) comma-joined in `--exclude`:
+If Step I5 and/or Step I6 excluded a type (`PROCEDURAL` = no and/or `MATCHABLE` = no), invoke
+instead with the applicable type(s) comma-joined in `--exclude`:
 ```
 python SCRIPT_TYPE --exclude ordering
 python SCRIPT_TYPE --exclude matching
 python SCRIPT_TYPE --exclude ordering,matching
 ```
 
-- Exit code 0: use the printed type (`mcq`, `msq`, `ordering`, or `matching`) for this trial. Store as `QUESTION_TYPE`.
-- Exit code non-zero: default to `mcq`. Log the fallback internally — REQ-MCQ-E-003.
+The exclude string is a **session constant** — derive it once from I5/I6 and pass the identical
+string on every slot's draw.
 
-### 2. Axis selection
+- Exit code 0: use the printed type (`mcq`, `msq`, `ordering`, or `matching`) for this slot. Store as `question_type`.
+- Exit code non-zero: default to `mcq` for this slot. Log the fallback internally — REQ-MCQ-E-003.
 
-Invoke:
+**2. Axis.** Invoke:
 ```
-python SCRIPT_AXIS --exclude [comma-delimited list of all axes used so far, in order]
+python SCRIPT_AXIS --exclude [comma-delimited list of the axes assigned to slots 0…i−1, in assignment order]
 ```
 
-Omit `--exclude` on Trial 1 (no prior axes).
+Omit `--exclude` for slot 0 (no axes assigned yet).
 
-- Exit code 0: use the printed axis for this trial.
-- Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not already used this session. Log the fallback internally — REQ-MCQ-E-002.
+- Exit code 0: use the printed axis for this slot. Store as `axis`.
+- Exit code 1: pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not yet assigned to a slot. Log the fallback internally — REQ-MCQ-E-002.
 
-**Ordering axis re-draw (REQ-ORD-E-003, REQ-ORD-F-016).** If `QUESTION_TYPE` is
-`ordering`, confirm — per `ORDERING_PROMPT`'s axis-fit check — that the assigned axis
-can force this trial's order. If it cannot:
+At the end of Pass 1 every slot holds a `question_type` and an `axis`, and no axis is assigned to
+two slots. Nothing has been constructed. Nothing has been presented.
 
-1. Re-draw: `python SCRIPT_AXIS --exclude [axes used so far this session, in order] + [axes rejected for this trial]`.
-2. A rejected axis is **not** added to the session's used-axes list — it stays
-   available to later trials. Track it as rejected only for this trial's re-draw
-   attempts.
-3. Repeat up to 3 re-draw attempts total for this trial.
-4. If all 3 attempts are exhausted without a fitting axis, hold the last-drawn axis
-   and reconstruct the scenario (per `ORDERING_PROMPT`) to one that axis can force.
-   Do not substitute the trial type.
+### G5. Pass 2 — content, slot by slot
 
-Once the axis is settled (fit confirmed, or held after exhaustion), it is the
-**finally-used axis** for this trial — it, and only it, enters the session's
-axis-exclusion list (the `--exclude` argument on later trials) and the report's
-Axis Coverage.
+For each slot in `trial_index` order, construct its content and write it into the artifact.
 
-**Matching axis re-draw (REQ-MAT-E-003, REQ-MAT-F-016).** If `QUESTION_TYPE` is
-`matching`, confirm — per `MATCHING_PROMPT`'s axis-fit check — that the assigned axis
-can make this trial's grid projection-resolvable (a dense, cross-viable grid with a
-unique bijection). If it cannot:
+The construction sequence in the prompt matching the slot's `question_type` — `MCQ_PROMPT`,
+`MSQ_PROMPT`, `ORDERING_PROMPT`, or `MATCHING_PROMPT` — governs construction unchanged. Three
+orchestration-level rules apply on top of it:
 
-1. Re-draw: `python SCRIPT_AXIS --exclude [axes used so far this session, in order] + [axes rejected for this trial]`.
-2. A rejected axis is **not** added to the session's used-axes list — it stays
-   available to later trials. Track it as rejected only for this trial's re-draw
-   attempts.
-3. Repeat up to 3 re-draw attempts total for this trial.
-4. If all 3 attempts are exhausted without a fitting axis, hold the last-drawn axis
-   and reconstruct the case-set (per `MATCHING_PROMPT`) to one that axis can force.
-   Do not substitute the trial type.
+**1. The prompt's `output` step is suppressed.** That step presents the question to the learner
+and waits for a response. It is **not executed during generation** — REQ-C-015. Capture what it
+would have presented — the stem, the choices/pool/grid, the closing prompt — into the slot
+instead. The Delivery Loop does the presenting, later, one trial at a time.
 
-Once the axis is settled (fit confirmed, or held after exhaustion), it is the
-**finally-used axis** for this trial — it, and only it, enters the session's
-axis-exclusion list and the report's Axis Coverage.
+**2. The axis-fit re-draw is batch-scoped.** The prompt's axis-fit step re-draws from
+*used + rejected*; in a batch it re-draws from **axes assigned to no other slot and not already
+rejected for this slot** — REQ-C-003.
 
-### 3. Prompt load
+For an **ordering** slot (REQ-ORD-E-003, REQ-ORD-F-016), confirm per `ORDERING_PROMPT`'s
+axis-fit check that the slot's axis can force this scenario's order. For a **matching** slot
+(REQ-MAT-E-003, REQ-MAT-F-016), confirm per `MATCHING_PROMPT`'s axis-fit check that it can make
+this slot's grid projection-resolvable — a dense, cross-viable grid with a unique bijection. If
+it cannot:
 
-Trial 1 only: read `MCQ_PROMPT`, `MSQ_PROMPT`, `ORDERING_PROMPT`, and `MATCHING_PROMPT`.
+1. Re-draw: `python SCRIPT_AXIS --exclude [every axis assigned to any other slot] + [every axis already rejected for this slot]`. The drawable set is exactly the axes assigned to no other slot and not yet rejected here.
+2. A rejected axis is **not** added to the session's used-axes list. Record it in this slot's `axis_rejected` and nowhere else; it stays drawable by another slot's re-draw — REQ-C-004.
+3. Repeat up to 3 re-draw attempts for this slot.
+4. If the attempts are exhausted — or if the drawable set is empty, which is the case once every axis is assigned to some slot — hold the last-drawn axis and reconstruct the scenario (ordering) or the case-set (matching) to one that axis can force. Never substitute the slot's type.
 
-If any is unreadable: halt immediately — REQ-MCQ-E-001 / REQ-ORD-E-001 / REQ-MAT-E-001.
+Once settled — fit confirmed, or held after exhaustion — that axis is the slot's **finally-used
+axis**. It, and only it, is written to `axis`, counts against other slots' draws, and appears in
+the report's Axis Coverage.
 
-Retain all four in context for all subsequent trials. Do not reload.
+**3. Validation gates the write, not the presentation.** The prompt's internal-validation
+checklist runs **before** the slot is written to the artifact. A slot failing any check is
+regenerated, not written. Difficulty is structural: every wrong answer must be independently
+viable in isolation and fail **only** under forward projection along the slot's axis. Batching
+changes *when* a trial is built — never *what it must satisfy*. An atom that is hard to write is
+evidence of a defective choice; regenerate the choice, never soften it.
 
-### 4. Trial construction and presentation
+After construction and validation, per slot:
 
-Construct and present the trial per the construction sequence in `MCQ_PROMPT` (if `QUESTION_TYPE` is `mcq`), `MSQ_PROMPT` (if `QUESTION_TYPE` is `msq`), `ORDERING_PROMPT` (if `QUESTION_TYPE` is `ordering`), or `MATCHING_PROMPT` (if `QUESTION_TYPE` is `matching`).
-The assigned axis is fixed once settled per Step 2 — do not substitute further.
+**Probe Target.** Generate the descriptor: ≤6 words naming the specific aspect of the concept
+this slot tests (e.g. "Failure propagation under concurrent load"). For ordering, name the
+procedure aspect ("Dual-write ordering before backfill"). For matching, the discrimination
+("Reversible vs. structural grip loss"). Store as `probe_target`. Do not reveal it to the learner.
 
-### 5. Wait
+**Write the slot** into the batch artifact, with `grade` and `gap_summary` null.
+
+When every slot is written, the batch is complete. Proceed to the Delivery Loop.
+
+---
+
+## Delivery Loop
+
+Runs after the Generation Phase, once per trial, over the batch's slots in `trial_index` order.
+It presents, waits, parses, grades against the stored `key`, and assembles the breakdown from the
+slot's stored atoms. It authors no new rationale and reads no generation prompt — REQ-C-010.
+
+Report numbering is session-global: a slot's trial number is
+`batch_index × BATCH_SIZE + trial_index + 1`. A bounded session has `batch_index: 0`, so the two
+coincide. Never display it.
+
+### D1. Present
+
+Present the slot's stored `stem` and `choices` **verbatim as generated**. Do not regenerate,
+re-shuffle, re-label, or re-word. This holds for every presentation of a slot, including a
+re-presentation after a tangent or a clarification — REQ-ORD-F-015, REQ-MAT-F-015.
 
 For MCQ: present **MCQ** on its own line, then the question stem and choices A–D. Stop. Wait for the learner's response.
 For MSQ: present **MSQ** on its own line, then the question stem and choices A–E, with the count in the closing prompt. Stop. Wait for the learner's response. Accept any common format (comma-separated, space-separated, written out). Parse as a set of letters — order does not matter.
 For Ordering: present **ORD** on its own line, then the task scenario, the pool with one label per line, and a closing prompt disclosing K (the number of steps to arrange) but not D (the number of distractors). Stop. Wait for the learner's response. Accept any common format (comma-separated, space-separated, arrow-separated, numbered list), case-insensitive. Parse as an **ordered** list of labels — order is significant. An out-of-pool label or a repeated label is invalid: ask the learner to resubmit; do not count the attempt — REQ-ORD-E-002.
 For Matching: present **MAT** on its own line, then the numeric prompt list (one prompt per line, labeled `1…n`), then the alpha response pool (one response per line, labeled `A…`), then a closing prompt disclosing the matching constraint: each prompt takes exactly one response, each response is used at most once, and some responses go unused. Both n (the prompt count) and m (the response count) are visible from the printed lists — this disclosure is intentional; unlike Ordering's hidden D, it does not leak which responses are unused. Stop. Wait for the learner's response. Accept common formats (`1-C`, `1:C`, `1C`, `1 → C`, comma- or newline-separated), case-insensitive — numeric prompt labels and alpha response labels are disjoint, so pair-token order is unambiguous. Parse as a set of n prompt→response pairs; the mapping must be injective (no prompt repeated, no response reused). A repeated prompt, a reused response, an out-of-range label, or a missing prompt is invalid: ask the learner to resubmit; do not count the attempt — REQ-MAT-E-002. A well-formed set that attaches a prompt to a distractor response is **valid and incorrect** — not a resubmit case.
 
-### 6. Evaluate and deliver breakdown
+### D2. Grade against the stored key
 
-Apply the MCQ, MSQ, Ordering, or Matching response protocol (see below) based on
-`QUESTION_TYPE`.
-For Ordering: correct iff the learner's ordered selected sequence exactly equals the
-correct sequence — the right steps, no distractors, none missing, exact order —
-REQ-ORD-F-007.
-For Matching: correct iff every one of the learner's n prompt→response pairs equals
-the key exactly — binary, all-or-nothing; the D distractor responses are correctly
-left unused — REQ-MAT-F-008.
+Compare the parsed response to the slot's stored `key`. Do not re-derive the key and do not
+re-open a generation prompt to check it.
 
-### 7. Internal record
+For MCQ: correct iff the selected label equals `key`.
+For MSQ: correct iff the selected set equals `key` exactly — no extra picks, no missed picks.
+For Ordering: correct iff the learner's ordered selected sequence exactly equals the correct
+sequence — the right steps, no distractors, none missing, exact order — REQ-ORD-F-007.
+For Matching: correct iff every one of the learner's n prompt→response pairs equals the key
+exactly — binary, all-or-nothing; the D distractor responses are correctly left unused —
+REQ-MAT-F-008.
 
-Generate the Probe Target descriptor: ≤6 words describing the specific aspect
-of the concept this trial tested (e.g., "Failure propagation under concurrent load").
-For Ordering, the descriptor names the procedure aspect tested (e.g., "Dual-write
-ordering before backfill"). For Matching, the descriptor names the discrimination
-tested (e.g., "Reversible vs. structural grip loss"). Do not reveal it to the learner.
+### D3. Deliver the breakdown
 
-Record internally:
+Apply the MCQ, MSQ, Ordering, or Matching response protocol (see Response Protocol below) for
+the slot's `question_type`, assembling each step from the slot's stored `explanation` block per
+the field map at the head of that section.
+
+### D4. Record the result
+
+Write the delivery-time fields onto the slot:
+
 ```
-{ trial_number, question_type (mcq/msq/ordering/matching), axis, grade (correct/incorrect), probe_target, gap_summary }
+grade: correct | incorrect
+gap_summary: str | null
 ```
 
-`gap_summary` is populated only for incorrect responses: the specific claim or
-mechanism the learner missed. For MSQ, note which picks were wrong and which correct
-answers were missed. For Ordering, note the false inclusions, the omissions, and the
-transposed pairs — REQ-ORD-F-009. For Matching, note the mis-attachments to
-distractor responses, the correct responses left unused, and the transposed pairs —
-REQ-MAT-F-021.
+`gap_summary` is populated only for incorrect responses: the specific claim or mechanism the
+learner missed. For MSQ, note which picks were wrong and which correct answers were missed. For
+Ordering, note the false inclusions, the omissions, and the transposed pairs — REQ-ORD-F-009.
+For Matching, note the mis-attachments to distractor responses, the correct responses left
+unused, and the transposed pairs — REQ-MAT-F-021.
+
+`probe_target`, `question_type`, and `axis` are already on the slot from generation. Do not
+regenerate them.
+
+### D5. Advance
+
+Move to the next slot in `trial_index` order. When the last slot has been delivered, proceed to
+the Analysis Phase.
+
+If the learner requests the report early, proceed to the Analysis Phase immediately and run it
+over the slots delivered so far. Undelivered slots are abandoned — they are never presented,
+never graded, and contribute nothing to the report.
 
 ---
 
 ## Response Protocol
+
+### Assembling the breakdown from stored atoms
+
+The eight protocols below define **what a breakdown must cover**. Under batched generation they
+are not authored live: each numbered step is filled from the slot's stored `explanation` block.
+Assemble; do not re-derive. Do not open a generation prompt to deliver a breakdown — REQ-C-010.
+
+| Protocol step | Artifact field |
+|---|---|
+| "State the axis: …" | `explanation.axis_statement` |
+| "Explain why the correct answer / sequence / pairing survives" | `explanation.key_survival` — shape varies by type (see Batch Artifact); address **every** entry individually |
+| "Address each wrong answer / distractor individually — the specific point where it fails **and why**" | `.failure` gives the failure point; `.viability_account` gives why it was not eliminable on first read |
+| "Name the orthodox-but-wrong choice" | the `distractor_failures` label whose `orthodox_but_wrong` is `true` |
+| "Explain the near-duplicate differentiator" | `explanation.near_duplicate_differentiators` — deliver every entry. `near_duplicate_of` names the paired **choice label**, which may be a correct-answer label and so is not necessarily a `distractor_failures` key |
+
+Coverage is fixed by the artifact: `distractor_failures` carries an entry for every choice not in
+the key, so "address all wrong answers individually" is satisfied by iterating its entries.
+
+**Fallback — atoms absent.** If a slot carries no `explanation` block, or the block lacks a field
+a protocol step needs, author that step live from the protocol prose below, exactly as an
+unbatched session would. Never skip a step and never shorten the coverage because an atom is
+missing — REQ-C-015.
 
 ### MCQ — Correct answer
 
@@ -735,19 +897,21 @@ Halt immediately. Report:
 
 Do not attempt to generate trials from memory or internal knowledge. All four prompt
 files are required. Their absence is not a degraded mode — it is a halt condition
-(REQ-MAT-E-001 extends this requirement to `MATCHING_PROMPT`).
+(REQ-MAT-E-001 extends this requirement to `MATCHING_PROMPT`). The halt fires at
+Generation Phase step G3, before any slot's content is constructed.
 
 ### REQ-MCQ-E-002 — SCRIPT_AXIS non-zero exit
 
-Pick the first axis from `[recognition, application, failure-diagnosis, boundary-condition,
-transfer, time, risk, coupling, observability]` not already used this session. If all axes
-have been used, pick the first that is not the most recently used. Log the fallback
-internally — do not expose it to the learner. Present the trial normally.
+Applies per slot, during Pass 1. Pick the first axis from `[recognition, application,
+failure-diagnosis, boundary-condition, transfer, time, risk, coupling, observability]` not
+already assigned to a slot. If every axis has been assigned, pick the first that is not the
+most recently assigned. Log the fallback internally — do not expose it to the learner.
+Generation continues normally.
 
 ### REQ-MCQ-E-003 — SCRIPT_TYPE non-zero exit
 
-Default to `mcq` for this trial. Log the fallback internally — do not expose it to the
-learner. Present the trial normally.
+Applies per slot, during Pass 1. Default to `mcq` for that slot. Log the fallback internally —
+do not expose it to the learner. Generation continues normally.
 
 ### REQ-ORD-E-002 — Invalid ordering response
 
@@ -757,12 +921,14 @@ the trial — the trial is still awaiting a valid response.
 
 ### REQ-ORD-E-003 — Ordering axis re-draw
 
-If the assigned axis cannot force the current ordering trial's order, re-draw via
-`SCRIPT_AXIS --exclude [axes used this session] + [axes rejected for this trial]`, up
-to 3 attempts. A rejected axis is not added to the session's used-axes list — it
-remains available to later trials. If all 3 re-draw attempts are exhausted, hold the
-last-drawn axis and reconstruct the scenario to one it can force. Never substitute the
-trial type mid-trial. Only the finally-used axis enters the session's axis-exclusion
+Runs in the Generation Phase, Pass 2. If the assigned axis cannot force an ordering slot's
+order, re-draw via `SCRIPT_AXIS --exclude [every axis assigned to any other slot] + [every
+axis rejected for this slot]`, up to 3 attempts — the drawable set is exactly the axes
+assigned to no other slot and not yet rejected here (REQ-C-003). A rejected axis is not added
+to the session's used-axes list — it is recorded in this slot's `axis_rejected` and remains
+drawable by other slots (REQ-C-004). If the attempts are exhausted, or the drawable set is
+empty, hold the last-drawn axis and reconstruct the scenario to one it can force. Never
+substitute the slot's type. Only the finally-used axis enters the session's axis-exclusion
 list and the report's Axis Coverage — REQ-ORD-F-016.
 
 ### REQ-MAT-E-002 — Invalid matching response
@@ -776,10 +942,12 @@ for a resubmit.
 
 ### REQ-MAT-E-003 — Matching axis re-draw
 
-If the assigned axis cannot make the current matching trial's grid projection-resolvable,
-re-draw via `SCRIPT_AXIS --exclude [axes used this session] + [axes rejected for this
-trial]`, up to 3 attempts. A rejected axis is not added to the session's used-axes list —
-it remains available to later trials. If all 3 re-draw attempts are exhausted, hold the
-last-drawn axis and reconstruct the case-set to one it can force. Never substitute the
-trial type mid-trial. Only the finally-used axis enters the session's axis-exclusion
+Runs in the Generation Phase, Pass 2. If the assigned axis cannot make a matching slot's grid
+projection-resolvable, re-draw via `SCRIPT_AXIS --exclude [every axis assigned to any other
+slot] + [every axis rejected for this slot]`, up to 3 attempts — the drawable set is exactly
+the axes assigned to no other slot and not yet rejected here (REQ-C-003). A rejected axis is
+not added to the session's used-axes list — it is recorded in this slot's `axis_rejected` and
+remains drawable by other slots (REQ-C-004). If the attempts are exhausted, or the drawable
+set is empty, hold the last-drawn axis and reconstruct the case-set to one it can force. Never
+substitute the slot's type. Only the finally-used axis enters the session's axis-exclusion
 list and the report's Axis Coverage — REQ-MAT-F-016.
