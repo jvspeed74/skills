@@ -10,9 +10,9 @@ description: |
 argument-hint: <the task to plan, or the change being made to an existing plan>
 allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, Skill, SendUserFile, AskUserQuestion, ToolSearch]
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   templates_referenced:
-    PLANNING.TEMPLATE.md: 1.3.3
+    PLANNING.TEMPLATE.md: 1.4.0
 ---
 
 # plan
@@ -61,7 +61,7 @@ An unresolved item that blocks the section in hand is asked now. One that does n
 Once classified, insert between tasks 3 and 4:
 
 - **Author** → `Stated sections`, `Investigation`, `Investigated sections`, `Consequence sections`, `Open Questions drain`, `Implementation Order`.
-- **Revise** → `Mutation`, `Cascade`.
+- **Revise** → `Gate`, `Mutation`, `Cascade`.
 
 ## Step 3 — Target
 
@@ -87,7 +87,7 @@ Once classified, insert between tasks 3 and 4:
 
 **Stated sections** — Problem Statement, then Functional and Non-Functional Requirements, then Non-goals. Run each section's gate. Write inline.
 
-**Investigation** — read the code, contracts, documents and measurements the task depends on. Write `INVESTIGATION__<slug>.md` beside the plan: every source consulted, what each established, and the assertion that the set was sufficient for the sections resting on it. Sources that established nothing belong in the record too — a shallow read is characterized by the file it never opened.
+**Investigation** — `Skill(skill: "plan-investigate", args: "slug=<slug>")`, which enumerates candidates before opening any of them and writes `INVESTIGATION__<slug>.md`. This step produces the record; the Investigation gate above checks it.
 
 **Investigated sections** — Invariants, then Design Decisions, then Files Touched. Invariants and Files Touched write inline. Each decision goes through `Skill(skill: "plan-update-design-decision", args: "mode=create decision_point=<...> resolution=<...> marker=<U|V> satisfies=<...> alternatives=<...>")`.
 
@@ -99,14 +99,16 @@ Once classified, insert between tasks 3 and 4:
 
 ### Revise
 
-Route the change to the atomic that owns its section:
+Run the gate that owns the section before the atomic that writes it. Each atomic states that its gate has already run; on this route nothing else runs it.
 
-| Section | Atomic |
-|---|---|
-| Invariants | `plan-update-invariant` |
-| Requirements | `plan-update-requirement` |
-| Design Decisions | `plan-update-design-decision` |
-| Files Touched | `plan-update-files-touched` |
+| Section | Gate first | Then atomic |
+|---|---|---|
+| Invariants | Investigation gate, via `Skill(skill: "plan-investigate", args: "slug=<slug>")` | `plan-update-invariant` |
+| Requirements | Functional requirement gate or NFR gate, whichever the ID selects | `plan-update-requirement` |
+| Design Decisions | Design decision gate | `plan-update-design-decision` |
+| Files Touched | Investigation gate, via the same call | `plan-update-files-touched` |
+
+A revision's investigation covers the sources bearing on the row being changed, not the whole plan, and appends to the existing record under a dated heading.
 
 Every other section is written inline. Each atomic invokes `plan-cascade` itself; never call it directly from here.
 
