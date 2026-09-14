@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "plan-marketplace",
+  "description": "Local single-plugin marketplace for the plan skill suite.",
+  "owner": {
+    "name": "Jalen Vaughn",
+    "email": "jvspeed74@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "plan",
+      "description": "Plan — a planning skill suite. Authors and revises the plan document a task requires before implementation begins: the rules the thing was built inside, the guarantees it makes, requirements, design decisions, blast radius, failure modes, and execution order. Nine skills: a hub, a standalone audit, an investigation, a cascade, and five write atomics.",
+      "source": "."
+    }
+  ]
+}

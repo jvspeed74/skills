@@ -1,17 +1,17 @@
 ---
 name: plan-cascade
 description: |
-  Internal — invoked only by the plan hub skill and the four plan-update atomics. Never
+  Internal — invoked only by the plan hub skill and the five plan-update atomics. Never
   invoke directly; if invoked without that calling context, redirect the caller to plan.
   Walks forward from a mutated section through every section that cites it, and reports
   what it reached. Recording the change is the hub's job, not this skill's.
 user-invocable: false
-argument-hint: break_point=<Invariants|Requirements|Design Decisions|Files Touched> changed_item_id=<INV-XX|FR-XX|NFR-XX|DD-XX|path> change_type=<modification|deletion>
+argument-hint: break_point=<Postulates|Invariants|Requirements|Design Decisions|Files Touched> changed_item_id=<PS-XX|INV-XX|FR-XX|NFR-XX|DD-XX|path> change_type=<modification|deletion>
 allowed-tools: [Read, Edit, Grep, Skill]
 metadata:
-  version: 0.2.0
+  version: 0.1.0
   templates_referenced:
-    PLANNING.TEMPLATE.md: 1.3.3
+    PLANNING.TEMPLATE.md: 0.1.0
 ---
 
 # plan-cascade
@@ -32,6 +32,7 @@ The calling atomic has already written its row. Never rewrite that row here.
 
 | `break_point` | Sections walked, in order |
 |---|---|
+| Postulates | Invariants → Design Decisions → Files Touched → Failure Modes → Implementation Order |
 | Invariants | Design Decisions → Files Touched → Failure Modes → Implementation Order |
 | Requirements | Design Decisions → Files Touched → Failure Modes → Implementation Order |
 | Design Decisions | Files Touched → Failure Modes → Implementation Order |
@@ -46,6 +47,8 @@ Cascade — <section>, triggered by <changed_item_id> (<change_type>)
 A section with no match is resolved by saying so. Silence is not a result.
 
 ## Checks
+
+**Invariants** — search `Invariant` and `Basis` for `changed_item_id`. A Postulate is the rule the thing conforms to; an Invariant is what a boundary then guarantees. On `modification`, confirm the guarantee still holds under the changed rule — a boundary promise made inside one set of constraints does not survive their redrawing by default. On `deletion`, the invariant has lost the rule it rested on: it names another basis, or it goes. Write through `plan-update-invariant`.
 
 **Design Decisions** — search `Satisfies` for `changed_item_id`. On `modification`, confirm the decision still holds against the changed row. On `deletion`, the decision now satisfies nothing: it names a replacement, or it goes. Write through `plan-update-design-decision`.
 

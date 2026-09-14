@@ -1,5 +1,5 @@
 ---
-template_version: "1.4.0"
+template_version: "0.1.0"
 ---
 
 # Implementation Plan: [Task Name]
@@ -44,8 +44,8 @@ template_version: "1.4.0"
                   applies — an absent section is indistinguishable from a
                   skipped one.
 
-  ID STABILITY:   Every ID (INV-XX, FR-XX, NFR-XX, NG-XX, DD-XX, FM-XX, RK-XX,
-                  OQ-XX, S-XX) is permanent once assigned. Never renumber an
+  ID STABILITY:   Every ID (PS-XX, INV-XX, FR-XX, NFR-XX, NG-XX, DD-XX, FM-XX,
+                  RK-XX, OQ-XX, S-XX) is permanent once assigned. Never renumber an
                   existing row to keep a series tidy — a later revision may
                   depend on that exact ID (e.g. Implementation Order cites
                   S-XX in Depends On). A new row takes the next unused
@@ -94,6 +94,55 @@ template_version: "1.4.0"
      originate what the problem is. -->
 
 [U] [Problem statement here]
+
+---
+
+## Postulates
+<!-- The unyielding rules the thing being modified was built inside — the
+     external assumptions it has no authority over. A Postulate is
+     inward-facing: what the thing conforms to. An Invariant below is the
+     outward half: what a boundary guarantees to whatever depends on it.
+     Both are non-negotiable; they face opposite directions.
+
+     Four properties. A candidate failing any one is not a Postulate:
+       No authority — the thing cannot negotiate, alter, or debate it. It
+                      can only conform.
+       Exclusive    — every aspect of the thing's shape traces to it. A
+                      proposed change that cannot be traced back either
+                      belongs elsewhere, or shows the Postulate was stated
+                      too loosely.
+       Sufficient   — it alone explains the shape. No additional force is
+                      needed.
+       External     — it exists independently of the thing, which did not
+                      author it. It may originate outside the system
+                      entirely (an OS contract, a format standard, a
+                      protocol) or above it (an architectural policy, a
+                      stated philosophy).
+
+     Four negative tests. None of these is a Postulate:
+       A stakeholder or team decision — stakeholders are proxies. The
+         Postulate is the assumption behind the decision.
+       A technology — a choice made inside a Postulate's space. The
+         Postulate is the rule that made the choice necessary.
+       A list of change scenarios — those are the Postulate's dimensions,
+         the ways it could shift. The Postulate is the thing being redrawn.
+       Anything internal to the thing — it cannot author its own Postulate.
+
+     A row belongs here only if cited by at least one Design Decision or
+     Failure Mode below, on the same footing as an Invariant.
+
+     Provenance: the marker prefixes `Postulate`. `Basis` names what
+     established it — the source, which mechanisms were run against it, and
+     which of those were independent of the source's own stated rationale.
+     `Cost` states what violating it would cost and how that was
+     established; "unestablished" is a permitted value and is not the same
+     as none. `Detected` states what, if anything, would catch a violation.
+     A Postulate whose violation is costly and would go undetected is the
+     most load-bearing kind — nothing else will ever catch it. -->
+
+| # | Postulate | Basis | Cost | Detected |
+|---|---|---|---|---|
+| PS-01 | [U] / [V] [The rule the thing has no authority over] | [What established it, which mechanisms ran, which were independent] | [What violating it costs and how that was established, or "unestablished"] | [What would catch a violation, or "nothing"] |
 
 ---
 
@@ -186,10 +235,19 @@ template_version: "1.4.0"
      not X instead?", it belongs here. Obvious choices given the constraints
      don't need a row.
 
-     Satisfies: the Requirement, Non-goal, or Invariant # (FR-XX, NFR-XX,
-     NG-XX, or INV-XX) that justifies the choice. A decision satisfying none
-     of these is either unnecessary or the requirement/invariant it needs
-     is missing above — fix whichever is true before proceeding.
+     Satisfies: the Requirement, Non-goal, Postulate or Invariant # (FR-XX,
+     NFR-XX, NG-XX, PS-XX or INV-XX) that justifies the choice. A decision
+     satisfying none of these is either unnecessary or the row it needs is
+     missing above — fix whichever is true before proceeding.
+
+     Agent Position: which option the agent recommended and the basis for
+     it, with that basis marked established or novel. A novel basis is
+     legitimate — the right answer is sometimes one nothing precedents —
+     and saying so keeps it from reading as precedent. Use — where the
+     agent held no view. This column exists so the finished plan can
+     distinguish a resolution the reviewer originated from one they
+     ratified; without it both look identical, and a later reader cannot
+     see where they were nudged.
 
      Alternatives Rejected: one clause per alternative with the specific
      reason it was not chosen — constraint, risk, complexity, or cost.
@@ -206,9 +264,9 @@ template_version: "1.4.0"
      rather than merely less attractive. A resolution is never derived and
      never assumed. -->
 
-| # | Decision Point | Resolution | Satisfies | Alternatives Rejected |
-|---|---|---|---|---|
-| DD-01 | [The question being resolved] | [U] / [V] [The chosen answer, stated as fact] | [FR-01, NFR-01, INV-01, ...] | [Alternative — why rejected; Alternative — why rejected] |
+| # | Decision Point | Resolution | Satisfies | Agent Position | Alternatives Rejected |
+|---|---|---|---|---|---|
+| DD-01 | [The question being resolved] | [U] / [V] [The chosen answer, stated as fact] | [FR-01, PS-01, INV-01, ...] | [Which option the agent recommended and on what basis, marked established or novel — or —] | [Alternative — why rejected; Alternative — why rejected] |
 
 ---
 
@@ -226,7 +284,7 @@ template_version: "1.4.0"
 
 | File | Operation | What Changes | Why |
 |---|---|---|---|
-| [path] | Create / Modify / Delete / Rename | [V] / [D::DD-XX] / [A] [What changes in this file] | [DD-01 / FR-01 / NFR-01 / INV-01 / ...] |
+| [path] | Create / Modify / Delete / Rename | [V] / [D::DD-XX] / [A] [What changes in this file] | [DD-01 / FR-01 / NFR-01 / PS-01 / INV-01 / ...] |
 
 ---
 
@@ -242,7 +300,7 @@ template_version: "1.4.0"
        Critical — silent wrong output; no automated detection
 
      Accepted?: Yes/No. If No, a Requirement, Design Decision, or Invariant
-     above must prevent this mode — cite it (FR-#, NFR-#, DD-#, or INV-#) in
+     above must prevent this mode — cite it (FR-#, NFR-#, DD-#, PS-#, or INV-#) in
      Behavior. If Yes, state why the outcome is tolerable inline; an
      unexplained "Yes" is not a verdict.
 
@@ -254,7 +312,7 @@ template_version: "1.4.0"
 
 | # | Trigger | Behavior | Severity | Accepted? |
 |---|---|---|---|---|
-| FM-01 | [Specific input/state that causes this] | [V] / [D::DD-XX] / [A] [What happens — cite the preventing DD-# / FR-# / NFR-# / INV-# if Accepted = No] | Low / Medium / High / Critical | [U] Yes / No — [why] |
+| FM-01 | [Specific input/state that causes this] | [V] / [D::DD-XX] / [A] [What happens — cite the preventing DD-# / FR-# / NFR-# / PS-# / INV-# if Accepted = No] | Low / Medium / High / Critical | [U] Yes / No — [why] |
 
 ---
 
@@ -318,7 +376,7 @@ template_version: "1.4.0"
      Files: bare file path(s) from Files Touched changed in this step. What
      changes in each file is Files Touched's job — do not restate it here.
 
-     Implements: DD-XX this step carries out — or FR-XX / NFR-XX / INV-XX
+     Implements: DD-XX this step carries out — or FR-XX / NFR-XX / PS-XX / INV-XX
      directly, when no Design Decision mediates the step. Use — for a
      purely mechanical step (scaffolding, config, rename) with nothing to
      cite.
@@ -340,7 +398,7 @@ template_version: "1.4.0"
 
 | # | Step | Files | Implements | Depends On |
 |---|---|---|---|---|
-| S-01 | [U] / [D::DD-XX] / [A] [Imperative action] | [path, path] | [DD-01 / FR-01 / NFR-01 / INV-01 / —] | [S-XX — reason, or —] |
+| S-01 | [U] / [D::DD-XX] / [A] [Imperative action] | [path, path] | [DD-01 / FR-01 / NFR-01 / PS-01 / INV-01 / —] | [S-XX — reason, or —] |
 
 ---
 
@@ -367,8 +425,13 @@ template_version: "1.4.0"
        - Open Questions has zero rows — an unresolved question is a reason
          to withhold the execute signal, not a footnote to note and proceed
          past.
-       - Every Invariant # (INV-XX) is cited by at least one Design Decision
-         or Failure Mode.
+       - Every Postulate # (PS-XX) and Invariant # (INV-XX) is cited by at
+         least one Design Decision or Failure Mode.
+       - Every source of governing intent named in the investigation record
+         is reflected in at least one Postulate or Invariant, or explicitly
+         noted there as bearing on nothing in this plan. The check above
+         tests whether what was written is relevant; this one tests whether
+         what mattered was written.
        - Every Requirement # (FR-XX, NFR-XX) appears in at least one Design
          Decision's Satisfies column.
        - Every Files Touched row cites a Design Decision, Requirement, or

@@ -9,9 +9,9 @@ user-invocable: false
 argument-hint: mode=<create|update|remove> table=<FR|NFR, for create> req_id=<FR-XX|NFR-XX, for update and remove> requirement=<text> threshold=<text, NFR only> verification=<text> threshold_marker=<U|V|A> field=<Requirement|Threshold|Verification> new_value=<value>
 allowed-tools: [Read, Edit, Skill]
 metadata:
-  version: 0.3.0
+  version: 0.1.0
   templates_referenced:
-    PLANNING.TEMPLATE.md: 1.3.3
+    PLANNING.TEMPLATE.md: 0.1.0
 ---
 
 # plan-update-requirement

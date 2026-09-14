@@ -9,9 +9,9 @@ user-invocable: false
 argument-hint: mode=<update|remove> path=<file path> field=<File|Operation|What Changes|Why> new_value=<value> marker=<V|D|A> derived_from=<DD-XX, when marker=D>
 allowed-tools: [Read, Edit, Skill]
 metadata:
-  version: 0.2.0
+  version: 0.1.0
   templates_referenced:
-    PLANNING.TEMPLATE.md: 1.3.3
+    PLANNING.TEMPLATE.md: 0.1.0
 ---
 
 # plan-update-files-touched

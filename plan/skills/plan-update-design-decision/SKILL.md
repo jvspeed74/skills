@@ -6,12 +6,12 @@ description: |
   Writes one Design Decisions row — on initial authoring as well as on mutation — and
   invokes plan-cascade for the rows a mutation invalidates.
 user-invocable: false
-argument-hint: mode=<create|update|remove> dd_id=<DD-XX, omit for create> decision_point=<text> resolution=<text> marker=<U|V> satisfies=<ID list> alternatives=<one clause per rejected option> field=<Decision Point|Resolution|Satisfies|Alternatives Rejected> new_value=<value>
+argument-hint: mode=<create|update|remove> dd_id=<DD-XX, omit for create> decision_point=<text> resolution=<text> marker=<U|V> satisfies=<ID list> agent_position=<text> alternatives=<one clause per rejected option> field=<Decision Point|Resolution|Satisfies|Agent Position|Alternatives Rejected> new_value=<value>
 allowed-tools: [Read, Edit, Skill]
 metadata:
-  version: 0.2.0
+  version: 0.1.0
   templates_referenced:
-    PLANNING.TEMPLATE.md: 1.3.3
+    PLANNING.TEMPLATE.md: 0.1.0
 ---
 
 # plan-update-design-decision
@@ -25,7 +25,8 @@ If invoked with no `plan` or `plan-cascade` calling context, respond that this i
 - `mode` — required. `create`, `update`, or `remove`. This is the one atomic that fires on initial authoring, because the failure it guards against — a resolution written before the alternatives were weighed — happens on the first write.
 - `dd_id` — required for `update` and `remove`. Omit for `create`; this skill assigns it.
 - `decision_point`, `resolution`, `satisfies`, `alternatives` — required for `create`. All four already confirmed with the practitioner by the calling hub.
-- `field`, `new_value` — required for `update`.
+- `agent_position` — required for `create`. Which option the calling hub recommended and the basis for it, with that basis marked established or novel, or `—` where it held none. This records what the agent argued; `resolution` records what the practitioner decided. Never collapse the two: a resolution the reviewer originated and one they ratified read identically without this cell.
+- `field`, `new_value` — required for `update`. `field` is `Decision Point`, `Resolution`, `Satisfies`, `Agent Position` or `Alternatives Rejected`.
 - `marker` — required whenever `resolution` is written, on `create` or `update`. `U` or `V` only; never `D`, never `A`. `V` asserts that exactly one option was ever viable, which obliges `alternatives` to establish each other option as non-viable rather than less attractive. Where two or more were viable, the practitioner chose and the marker is `U`.
 
 The design decision gate has already run upstream of this call: alternatives identified from investigation, and the choice taken from the practitioner.
@@ -34,9 +35,9 @@ The design decision gate has already run upstream of this call: alternatives ide
 
 **`create`:** read `## Design Decisions`, take the highest existing `DD-XX`, add one. Append:
 
-| # | Decision Point | Resolution | Satisfies | Alternatives Rejected |
-|---|---|---|---|---|
-| `<new id>` | `<decision_point>` | `[<marker>] <resolution>` | `<satisfies>` | `<alternatives>` |
+| # | Decision Point | Resolution | Satisfies | Agent Position | Alternatives Rejected |
+|---|---|---|---|---|---|
+| `<new id>` | `<decision_point>` | `[<marker>] <resolution>` | `<satisfies>` | `<agent_position>` | `<alternatives>` |
 
 No cascade call. Nothing cites a decision that did not exist a moment ago.
 

@@ -8,9 +8,9 @@ user-invocable: false
 argument-hint: mode=<update|remove> inv_id=<INV-XX> field=<Invariant|Basis> new_value=<value> marker=<U|V|A>
 allowed-tools: [Read, Edit, Skill]
 metadata:
-  version: 0.2.0
+  version: 0.1.0
   templates_referenced:
-    PLANNING.TEMPLATE.md: 1.3.3
+    PLANNING.TEMPLATE.md: 0.1.0
 ---
 
 # plan-update-invariant

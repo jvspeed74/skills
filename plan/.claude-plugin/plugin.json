@@ -1,0 +1,9 @@
+{
+  "name": "plan",
+  "version": "0.1.0",
+  "description": "Plan — a planning skill suite. Authors and revises the plan document a task requires before implementation begins: the rules the thing was built inside, the guarantees it makes, requirements, design decisions, blast radius, failure modes, and execution order. Nine skills: a hub, a standalone audit, an investigation, a cascade, and five write atomics.",
+  "author": {
+    "name": "Jalen Vaughn",
+    "email": "jvspeed74@gmail.com"
+  }
+}
