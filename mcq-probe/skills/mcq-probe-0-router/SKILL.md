@@ -12,11 +12,10 @@ argument-hint: "[concept]"
 # MCQ Probe
 
 A self-contained evaluation tool. The learner specifies a concept; the skill
-runs N trials against it — a mix of multiple-choice (MCQ) and multiple-select
-(MSQ) — gives full breakdowns after every response, then produces a diagnostic
-Markdown report. There is no coaching, no nudging, and no routing to other
-skills. The output is an unvarnished picture of what the learner does and does
-not understand.
+runs N MCQ trials against it, gives full breakdowns after every response, then
+produces a diagnostic Markdown report. There is no coaching, no nudging, and no
+routing to other skills. The output is an unvarnished picture of what the learner
+does and does not understand.
 
 ---
 
