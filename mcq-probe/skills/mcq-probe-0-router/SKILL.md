@@ -134,12 +134,12 @@ Invoke AskUserQuestion with:
     "multiSelect": false,
     "options": [
       {
-        "label": "Aviation",
-        "description": "NTSB causal chains, flight envelope, MRO operations."
-      },
-      {
         "label": "Motorsport",
         "description": "F1 telemetry, tire model, race strategy, vehicle dynamics."
+      },
+      {
+        "label": "Aviation",
+        "description": "Pilot and ATC operations: flight envelope, approach decisions, clearances, sequencing; NTSB and MRO last."
       },
       {
         "label": "Abstract",
