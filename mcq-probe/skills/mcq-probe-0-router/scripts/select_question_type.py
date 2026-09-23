@@ -5,11 +5,10 @@ Randomly select a question type for an MCQ probe trial.
 Usage:
     python select_question_type.py [--exclude type1,type2,...]
 
-Output: 'mcq', 'msq', or 'ordering' on stdout
+Output: 'mcq' or 'msq' on stdout
 Exit: 0 on success, 1 on error
 
-Pass type names to exclude from the draw (e.g. to keep a non-procedural
-concept from ever drawing 'ordering'). An unknown type name is an error.
+Pass type names to exclude from the draw. An unknown type name is an error.
 Excluding every type is an error.
 """
 
@@ -17,7 +16,7 @@ import argparse
 import random
 import sys
 
-TYPES = ["mcq", "msq", "ordering"]
+TYPES = ["mcq", "msq"]
 
 
 def select(exclude):

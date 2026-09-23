@@ -28,7 +28,7 @@ deliverable.
 
 ## The two devices that enforce it
 
-Every question is built around these (stated in MCQ terms; MSQ and Ordering carry direct
+Every question is built around these (stated in MCQ terms; MSQ carries direct
 analogues):
 
 - **Near-duplicate pair** — two choices that look alike, diverging at exactly one phrase
@@ -52,22 +52,18 @@ no matter how sophisticated the stem looks.
 
 ## Adding or changing a question type
 
-When you introduce a new format (as Ordering was added alongside MCQ/MSQ), the first
+When you introduce a new format, the first
 question is **not** "how does the format work." It is:
 
 > **How does this format preserve the every-wrong-answer-viable, fails-only-under-projection
 > property — and where do the near-duplicate and orthodox-but-wrong devices map onto it?**
 
 Answer that explicitly before designing the format. A novel format that makes selection or
-answers easier is a **regression**, even if the mechanic is new. Ordering, for instance,
-extends the invariant across *two* graded operations (which steps belong AND their forced
-order); both must be projection-hard, and every distractor must be a plausible inclusion,
-never out-of-scope filler. See `plans/ordering-question-type-plan.md` §3 (hardness transfer)
-for the worked mapping.
+answers easier is a **regression**, even if the mechanic is new.
 
 ## Before you touch answer design
 
-Read the relevant generation prompt in full first — `MCQ_GENERATION_PROMPT.md`,
-`MSQ_GENERATION_PROMPT.md`, or `ORDERING_GENERATION_PROMPT.md`. They are the authoritative
+Read the relevant generation prompt in full first — `MCQ_GENERATION_PROMPT.md` or
+`MSQ_GENERATION_PROMPT.md`. They are the authoritative
 spec, and the internal-validation checklist in each is the bar every question must clear.
 **This file is the mental model; those files are the contract.**
