@@ -243,6 +243,26 @@
       Use the domain preference specified during intake. If "No preference" was
       set, select the domain that fits the concept most naturally.
 
+      Anchor priority when selecting a domain: motorsport, then aviation, then
+      work context, then abstract.
+        1. Motorsport: F1 telemetry, tire model, race strategy, vehicle dynamics.
+        2. Aviation: pilot operations (flight envelope and angle-of-attack/stall
+           margin, energy management, stabilized-approach and go/no-go decision
+           criteria, checklist/SOP discipline and CRM); ATC operations (clearances
+           and the readback/hearback loop, standard phraseology, separation
+           standards, traffic sequencing and sector handoffs,
+           flow control such as ground stops and EDCTs, lost-communications
+           procedures); then NTSB causal chains, safety-critical system design,
+           and MRO operations.
+        3. Work context.
+        4. Abstract: no physical anchor.
+
+      Learner familiarity: pilot and ATC knowledge is simulator-level and
+      procedure-deep, so scenarios may assume procedures (clearance format,
+      readback, checklist flows, V-speeds, stabilized-approach gates) without
+      first teaching them. The learner has no MRO work context; treat MRO as
+      the lowest-weight aviation item.
+
       A strained domain analogy is worse than an abstract scenario. Apply a
       domain anchor only when it fits naturally and makes the concept clearer,
       not when it requires the learner to first understand the domain context.
@@ -939,7 +959,9 @@
         plausible scenarios appear to have been used.
       </condition>
       <resolution>
-        Change the domain anchor for the new session. The axis and concept remain
+        Change the domain anchor for the new session. If the prior session
+        used motorsport anchors throughout, shift to aviation, or to the next
+        available level in the anchor priority order. The axis and concept remain
         the same; only the operational setting changes.
       </resolution>
     </edge-case>
